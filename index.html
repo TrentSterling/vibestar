@@ -1,1 +1,827 @@
-<h1>vibe star baby!</h1>
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibeStar! Voxel A* Pathfinder</title>
+<style>:root{--control-panel-width-vw: 28vw;--control-panel-width-max: 520px;--control-panel-width-min: 380px;--base-padding: 1rem;--transition-speed: 0.3s;--bg-color: #1a1d24;--panel-bg-color: rgba(40, 45, 55, 0.95);--text-color: #e8e8e8;--text-color-light: #ffffff;--text-color-muted: #b0b0b0;--accent-color: #00aaff;--accent-color-hover: #0088cc;--accent-color-active: #0066aa;--highlight-color: #ffae5a;--danger-color: #ff4444;--warning-color: #ffc107;--info-color: #40d0ff;--success-color: #00ff00;--cyan-color: #00ffff;--magenta-color: #ff00ff;--font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;--font-family-mono: 'Consolas', 'Courier New', monospace;--border-radius: 0.3rem;--box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.3);--box-shadow-light: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.2);--min-font: 13px;--max-font: 28px;--preferred-font-base: 9px;--preferred-font-factor: 0.42vw;--debug-panel-height: 18.75rem;--perf-panel-height: 24.375rem;--perf-panel-width: clamp(300px, 25vw, 400px);--toggle-button-height: 2.5rem;--desc-area-max-width: clamp(600px, 52vw, 1500px);}
+html{font-size: clamp(var(--min-font), calc(var(--preferred-font-base) + var(--preferred-font-factor)), var(--max-font));}
+body{margin: 0;overflow: hidden;background-color: var(--bg-color);color: var(--text-color);font-family: var(--font-family);display: flex;position: relative;font-size: 1rem;line-height: 1.5;}
+#canvas-container{flex-grow: 1;position: relative;overflow: hidden;transition: width var(--transition-speed) ease;}
+canvas{display: block;position: absolute;top: 0;left: 0;cursor: grab;}
+canvas:active{cursor: grabbing;}
+.toggle-button{position: fixed;background-color: rgba(50, 50, 55, 0.8);color: var(--text-color-light);border: 1px solid rgba(255, 255, 255, 0.15);padding: 0.5rem 1rem;border-radius: var(--border-radius);cursor: pointer;z-index: 102;font-size: 0.85em;transition: all var(--transition-speed) ease;backdrop-filter: blur(4px);box-shadow: var(--box-shadow-light);font-family: var(--font-family);line-height: 1.3;height: var(--toggle-button-height);box-sizing: border-box;display: flex;align-items: center;justify-content: center;}
+.toggle-button:hover{background-color: rgba(70, 70, 75, 0.9);box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.3);}
+.toggle-button:active{background-color: rgba(90, 90, 95, 0.95);box-shadow: 0 0.05rem 0.25rem rgba(0, 0, 0, 0.2);}
+#toggle-description{top: var(--base-padding);left: var(--base-padding);}
+#toggle-controls{top: var(--base-padding);right: var(--base-padding);}
+#toggle-ui-panels{bottom: var(--base-padding);left: var(--base-padding);z-index: 99;}
+#debug-container, #performance-container{position: absolute;left: var(--base-padding);transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease, bottom var(--transition-speed) ease;overflow: hidden;border-radius: var(--border-radius);border: 1px solid rgba(255, 255, 255, 0.1);box-shadow: var(--box-shadow-light);background: rgba(15, 18, 25, 0.85);backdrop-filter: blur(4px);z-index: 98;opacity: 1;visibility: visible;}
+#debug-container{bottom: calc(var(--base-padding) * 2 + var(--toggle-button-height));height: var(--debug-panel-height);width: var(--perf-panel-width);}
+#performance-container{bottom: calc(var(--base-padding) * 3 + var(--toggle-button-height) + var(--debug-panel-height));height: var(--perf-panel-height);width: var(--perf-panel-width);}
+#debug{position: static;padding: 0.8rem;font-size: 0.8em;height: 100%;width: auto;box-sizing: border-box;overflow-y: scroll;line-height: 1.6;color: #ccc;font-family: var(--font-family-mono);white-space: pre-wrap;word-wrap: break-word;border: none;box-shadow: none;background: none;backdrop-filter: none;}
+#performance-panel{position: static;padding: 0.8rem 1rem;font-size: 0.75em;height: 100%;width: auto;box-sizing: border-box;line-height: 1.75;color: #ccc;font-family: var(--font-family-mono);border: none;box-shadow: none;background: none;backdrop-filter: none;display: flex;flex-direction: column;justify-content: flex-start;overflow-y: auto;}
+#performance-panel div{display: flex;justify-content: space-between;margin-bottom: 0.3rem;}
+#performance-panel span:first-child{color: var(--text-color-muted);padding-right: 0.8rem;flex-shrink: 0;}
+#performance-panel span:last-child{color: var(--text-color-light);font-weight: bold;white-space: nowrap;text-align: right;}
+body.ui-panels-hidden #debug-container,
+body.ui-panels-hidden #performance-container{opacity: 0 !important;visibility: hidden !important;pointer-events: none;bottom: calc(-1 * (var(--debug-panel-height) + var(--perf-panel-height) + var(--base-padding) * 4 + var(--toggle-button-height)));}
+#description-area{position: absolute;top: calc(var(--base-padding) * 2 + var(--toggle-button-height));left: var(--base-padding);width: calc(100vw - clamp(var(--control-panel-width-min), var(--control-panel-width-vw), var(--control-panel-width-max)) - 3 * var(--base-padding));max-width: var(--desc-area-max-width);background: rgba(25, 30, 40, 0.92);padding: 1.2rem 1.5rem;box-sizing: border-box;border-radius: var(--border-radius);border: 1px solid rgba(255, 255, 255, 0.1);z-index: 100;pointer-events: auto;font-size: 0.85em;max-height: calc(100vh - 8rem);overflow-y: auto;box-shadow: var(--box-shadow);line-height: 1.65;opacity: 1;visibility: visible;transform: translateY(0%);transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease, visibility 0s linear 0s, width var(--transition-speed) ease;}
+#description-area.hidden{opacity: 0 !important;transform: translateY(calc(-100% - var(--base-padding) * 2 - var(--toggle-button-height) - 10px ));visibility: hidden !important;pointer-events: none !important;transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease, visibility 0s linear var(--transition-speed), width var(--transition-speed) ease;}
+#description-area h2, #description-area h4{margin-top: 0;margin-bottom: 0.8rem;color: var(--info-color);text-align: left;font-weight: 600;font-size: 1.1em;}
+#description-area p{margin-bottom: 0.8rem;color: var(--text-color);}
+#description-area ul{list-style: disc;padding: 0 0 0 1.4rem;margin-bottom: 0.8rem;}
+#description-area li{margin-bottom: 0.5rem;font-size: 1em;}
+#description-area code{background-color: rgba(0,0,0,0.5);padding: 0.15rem 0.4rem;border-radius: 3px;font-size: 0.9em;color: var(--highlight-color);font-family: var(--font-family-mono);}
+#description-area .credits{font-size: 1.125em;text-align: center;margin-top: 1rem;color: var(--text-color-muted);border-top: 1px solid rgba(255,255,255,0.1);padding-top: 0.8rem;}
+#control-panel{flex-shrink: 0;position: relative;width: clamp(var(--control-panel-width-min), var(--control-panel-width-vw), var(--control-panel-width-max));height: 100vh;background-color: var(--panel-bg-color);padding: calc(var(--toggle-button-height) + var(--base-padding)) 0 0 0;box-sizing: border-box;z-index: 101;border-left: 1px solid rgba(255, 255, 255, 0.1);font-size: 0.85em;transition: margin-right var(--transition-speed) ease;margin-right: 0;box-shadow: var(--box-shadow);display: flex;flex-direction: column;overflow: hidden;}
+#control-panel-content{overflow-y: auto;flex-grow: 1;padding: 0 1.2rem 1.5rem 1.2rem;}
+#control-panel h3{padding-top: 1rem;margin-top: 0;margin-bottom: 1.2rem;padding-bottom: 0.6rem;color: var(--text-color-light);border-bottom: 1px solid rgba(255, 255, 255, 0.15);text-align: center;font-size: 1.1em;font-weight: 600;}
+#control-panel-content div{margin-bottom: 0.6rem;}
+#control-panel-content label{display: block;font-size: 1em;margin-bottom: 0.3rem;color: var(--text-color);font-weight: 500;}
+#control-panel-content label span{float: right;color: var(--text-color-light);font-weight: bold;min-width: 4.5rem;text-align: right;background-color: rgba(0,0,0,0.4);padding: 0.15rem 0.4rem;border-radius: 3px;font-size: 0.9em;}
+#control-panel-content input[type="checkbox"]{width: 1.2rem;height: 1.2rem;margin-right: 0.4rem;vertical-align: middle;cursor: pointer;}
+#control-panel-content label.checkbox-label{display: inline-block;margin-bottom: 0;vertical-align: middle;font-size: 1em;}
+#control-panel-content select, #control-panel-content input[type="number"]{width: 100%;box-sizing: border-box;margin-top: 0.4rem;padding: 0.5rem 0.7rem;font-size: 1em;background-color: rgba(255,255,255,0.08);border: 1px solid rgba(255,255,255,0.15);color: var(--text-color-light);border-radius: var(--border-radius);appearance: none;-webkit-appearance: none;-moz-appearance: none;background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23cccccc%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');background-repeat: no-repeat;background-position: right 0.7rem center;background-size: 0.6rem 0.6rem;cursor: pointer;}
+#control-panel-content select:focus, #control-panel-content input[type="number"]:focus{border-color: var(--accent-color);outline: none;box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);}
+#control-panel-content select option{background-color: #282d37;color: var(--text-color-light);padding: 0.4rem 0.7rem;font-size: 1em;}
+#control-panel-content input[type="range"]{width: 100%;box-sizing: border-box;margin-top: 0.4rem;cursor: pointer;height: 0.5rem;padding: 0;background: rgba(0,0,0,0.3);border: none;border-radius: 0.25rem;appearance: none;}
+#control-panel-content input[type=range]::-webkit-slider-thumb{appearance: none;height: 1.4rem;width: 1.4rem;background: var(--accent-color);border-radius: 50%;cursor: pointer;border: 0.15rem solid #fff;margin-top: -0.45rem;box-shadow: var(--box-shadow-light);transition: background-color 0.15s ease;}
+#control-panel-content input[type=range]::-moz-range-thumb{height: 1.4rem;width: 1.4rem;background: var(--accent-color);border-radius: 50%;cursor: pointer;border: 0.15rem solid #fff;box-shadow: var(--box-shadow-light);transition: background-color 0.15s ease;}
+#control-panel button{width: 100%;padding: 0.7rem 1rem;background-color: var(--accent-color);color: white;border: none;border-radius: var(--border-radius);cursor: pointer;font-size: 0.9em;font-weight: 600;transition: background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;box-shadow: var(--box-shadow-light);}
+#control-panel button:hover{background-color: var(--accent-color-hover);box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);}
+#control-panel button:active{background-color: var(--accent-color-active);box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);}
+#control-panel button.pending-changes{background-color: var(--warning-color) !important;color: #333;font-weight: bold;animation-name: pulse-warning;animation-duration: 1.5s;animation-iteration-count: infinite;animation-timing-function: ease-in-out;}
+#control-panel button.pending-changes:hover{background-color: #e0a800 !important;animation-name: none;}
+#regenerate-button-container{position: sticky;bottom: 0;background: linear-gradient(rgba(40, 45, 55, 0), rgba(40, 45, 55, 1) 30%);padding: 1rem 1.2rem 1.5rem 1.2rem;margin-top: auto;z-index: 10;width: 100%;box-sizing: border-box;}
+#regenerate-button-container button{margin-top: 0;}
+@keyframes pulse-warning{0%{opacity: 1;box-shadow: var(--box-shadow-light);} 50%{opacity: 0.75;box-shadow: 0 0 12px 2px rgba(255, 193, 7, 0.6);} 100%{opacity: 1;box-shadow: var(--box-shadow-light);}}
+hr{border: none;border-top: 1px solid rgba(255, 255, 255, 0.1);margin: 1rem 0;}
+.hidden{opacity: 0 !important;visibility: hidden !important;pointer-events: none;}
+body.controls-hidden #control-panel{margin-right: calc(-1 * clamp(var(--control-panel-width-min), var(--control-panel-width-vw), var(--control-panel-width-max)) );}
+body.controls-hidden #description-area{right: var(--base-padding);width: calc(100vw - 2 * var(--base-padding));max-width: none;}
+</style>
+</head>
+<body>
+<button id="toggle-description" class="toggle-button">Hide Info</button>
+<button id="toggle-ui-panels" class="toggle-button">Hide UI Panels</button>
+<button id="toggle-controls" class="toggle-button">Hide Controls</button>
+<div id="canvas-container"></div>
+<div id="description-area">
+<h2>VibeStar! <small style="font-weight: 400; color: var(--text-color-muted); font-size: 0.8em;">Voxel A* Pathfinder</small></h2>
+<p>This demo uses Web Workers and A* pathfinding (with a Min-Heap) to navigate agents (boids) through a procedural voxel world. Visualization uses shader-based points or cubes.</p>
+<p style="color: var(--highlight-color);">Click a lit face in the world to set a global target (<code style="color: var(--highlight-color);">Orange Sphere</code>). Boids will pathfind once and stop upon arrival. Click empty space to clear the target; idle boids will then start pathing to random locations (staggered).</p>
+<h4>Experiment!</h4>
+<p>Play with all the controls! Adjust sliders like <b>Boid Count</b>, <b>Worker Count</b>, <b>Max Path Nodes</b>, and <b>Worker Viz Sample Limit</b> to see how they impact performance (FPS, Worker Load, Path Speed). Tweak visual sliders like <b>World Opacity</b> or toggle the <b>A* Viz / Boid Paths</b> checkboxes. </p>
+<ul>
+<li>Most visual sliders update live (Opacities, Speed, Cooldowns, Path/Debug Rates & Scale). The <b>Worker Viz Sample Limit</b> also updates workers directly.</li>
+<li>Changes to world structure (<b>Grid Resolution, Num Rooms</b>), agent count (<b>Boids</b>), core worker settings (<b>Worker Count, Max Path Nodes</b>), and debug visualization limits (<b>Max Instances</b>) require a world regeneration. The <code style="color: var(--warning-color); background: rgba(0,0,0,0.3);">Apply & Regenerate World</code> button at the bottom will pulse yellow/orange when changes requiring regeneration are pending.</li>
+</ul>
+<h4>Visualization</h4>
+<ul>
+<li><code style="color: var(--cyan-color);">Cyan</code>/<code style="color: var(--magenta-color);">Magenta</code> Points/Cubes: A* Nodes (sampled, accumulated, flashed)</li>
+<li>Thin white line: Boid's current intent (seeking path)</li>
+<li><code style="color: var(--success-color);">G</code>/<code style="color: var(--warning-color);">Y</code>/<code style="color: var(--danger-color);">R</code>: Boid Path Line (toggleable, slider for opacity, color indicates length)</li>
+<li><code style="color: #aaaaaa;">Gray</code>/<code style="color: #5588bb;">Blue</code>/<code style="color: #cc6666;">Reddish</code>/<code style="color: var(--highlight-color);">Color</code>: Boid State (Idle/Seek/Failed/Move)</li>
+<li><code style="color: var(--highlight-color);">Orange Sphere</code>: Global Target</li>
+</ul>
+<p class="credits">Vibecoded April 9th, 2024 by Trent Sterling & Gemini 2.5</p>
+</div>
+<div id="debug-container">
+<div id="debug">Initializing...</div>
+</div>
+<div id="performance-container">
+<div id="performance-panel">
+<div><span>FPS:</span> <span id="perf-fps">--</span></div>
+<div><span>Busy Workers (Now/Max):</span> <span id="perf-workers">--/--/--</span></div>
+<div><span>Worker Queue (Now/Max):</span> <span id="perf-queue">--/--</span></div>
+<div><span>Idle/Wait Boids:</span><span id="perf-idle-wait">--</span></div>
+<div><span>Paths/sec:</span> <span id="perf-paths-sec">--</span></div>
+<hr style="margin: 0.4rem 0; border-color: rgba(255,255,255,0.05);">
+<div><span>World Gen:</span> <span id="perf-worldgen">-- ms</span></div>
+<div><span>Meshing:</span> <span id="perf-meshing">-- ms</span></div>
+<div><span>Avg Path:</span> <span id="perf-pathavg">-- ms</span></div>
+<hr style="margin: 0.4rem 0; border-color: rgba(255,255,255,0.05);">
+<div><span>Render Call:</span> <span id="perf-render-time">-- ms</span></div>
+<div><span>Manager Upd:</span> <span id="perf-manager-update">-- ms</span></div>
+<div><span>DebugViz Upd:</span> <span id="perf-debug-update">-- ms</span></div>
+<div><span>Particles Upd:</span> <span id="perf-particle-update">-- ms</span></div>
+<div><span>Controls Upd:</span> <span id="perf-controls-update">-- ms</span></div>
+</div>
+</div>
+<div id="control-panel">
+<div id="control-panel-content">
+<h3>World & Agent Controls</h3>
+<div>
+<label for="ctrl-grid-resolution">Grid Resolution <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code></label>
+<select id="ctrl-grid-resolution">
+<option value="32">32x32x32</option>
+<option value="48">48x48x48</option>
+<option value="64">64x64x64</option>
+<option value="96" selected>96x96x96</option>
+</select>
+</div>
+<div>
+<label for="ctrl-worker-count">Worker Count <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code></label>
+<select id="ctrl-worker-count">
+<option value="4">4</option>
+<option value="6" selected>6</option>
+<option value="8">8</option>
+<option value="12">12</option>
+<option value="16">16</option>
+<option value="20">20</option>
+<option value="24">24</option>
+</select>
+</div>
+<div> <label>Chunk Size: <span id="val-chunk-size">16x16x16</span></label> </div>
+<div> <label for="ctrl-num-rooms">Number of Rooms <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code> <span id="val-num-rooms">25</span></label> <input type="range" id="ctrl-num-rooms" min="3" max="25" step="1" value="25"> </div>
+<div> <label for="ctrl-boids">Number of Boids <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code> <span id="val-boids">150</span></label> <input type="range" id="ctrl-boids" min="1" max="500" step="1" value="150"> </div>
+<div> <label for="ctrl-boid-speed">Boid Speed <span id="val-boid-speed">15.0</span></label> <input type="range" id="ctrl-boid-speed" min="0.5" max="15.0" step="0.1" value="15.0"> </div>
+<div> <label for="ctrl-max-search-nodes">Max Path Nodes (Worker) <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code> <span id="val-max-search-nodes">150k</span></label> <input type="range" id="ctrl-max-search-nodes" min="1000" max="200000" step="1000" value="150000"> </div>
+<div> <label for="ctrl-interrupt-cooldown">Interrupt Cooldown Max (ms)<span id="val-interrupt-cooldown">500</span></label> <input type="range" id="ctrl-interrupt-cooldown" min="50" max="2000" step="50" value="500"> </div>
+<div> <label for="ctrl-failed-path-cooldown">Failed Path Cooldown (ms)<span id="val-failed-path-cooldown">1500</span></label> <input type="range" id="ctrl-failed-path-cooldown" min="500" max="5000" step="100" value="1500"> </div>
+<hr>
+<h3>Visual Controls</h3>
+<div> <label for="ctrl-world-opacity">World Opacity <span id="val-world-opacity">0.30</span></label> <input type="range" id="ctrl-world-opacity" min="0.0" max="1.0" step="0.01" value="0.30"> </div>
+<div> <label for="ctrl-wireframe-opacity">Wireframe Opacity <span id="val-wireframe-opacity">0.02</span></label> <input type="range" id="ctrl-wireframe-opacity" min="0.0" max="1.0" step="0.01" value="0.02"> </div>
+<div>
+<label for="ctrl-debug-vis-type">Debug Viz Type</label>
+<select id="ctrl-debug-vis-type">
+<option value="points" selected>Points (Transparent)</option>
+<option value="cubes">Cubes (Instanced)</option>
+</select>
+</div>
+<div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+<input type="checkbox" id="ctrl-debug-viz-enabled" checked style="margin-right: 0.5rem;">
+<label for="ctrl-debug-viz-enabled" class="checkbox-label" style="margin-right: 1.5rem;">Show A* Visualization</label>
+<input type="checkbox" id="ctrl-show-boid-paths" checked style="margin-right: 0.5rem;">
+<label for="ctrl-show-boid-paths" class="checkbox-label">Show Boid Paths</label>
+</div>
+<div> <label for="ctrl-path-line-opacity">Path Line Opacity <span id="val-path-line-opacity">0.90</span></label> <input type="range" id="ctrl-path-line-opacity" min="0.0" max="1.0" step="0.01" value="0.90"> </div>
+<div> <label for="ctrl-max-debug-instances">Max Debug Viz Instances <code style="color: var(--warning-color); font-size:0.8em;">(Regen Req.)</code><span id="val-max-debug-instances">16000</span></label> <input type="range" id="ctrl-max-debug-instances" min="500" max="20000" step="100" value="16000"> </div>
+<div> <label for="ctrl-worker-debug-sample-limit">Worker Viz Sample Limit <code style="color: var(--info-color); font-size:0.8em;">(Live Update)</code><span id="val-worker-debug-sample-limit">500</span></label> <input type="range" id="ctrl-worker-debug-sample-limit" min="50" max="2000" step="10" value="500"> </div>
+<div> <label for="ctrl-debug-opacity">Debug Viz Opacity <span id="val-debug-opacity">0.40</span></label> <input type="range" id="ctrl-debug-opacity" min="0.0" max="0.8" step="0.01" value="0.40"> </div>
+<div> <label for="ctrl-debug-scale">Debug Viz Scale Multiplier <span id="val-debug-scale">3.0</span></label> <input type="range" id="ctrl-debug-scale" min="0.5" max="10.0" step="0.1" value="3.0"> </div>
+<div> <label for="ctrl-debug-update-interval">Debug Viz Update Rate (ms)<span id="val-debug-update-interval">150</span></label> <input type="range" id="ctrl-debug-update-interval" min="50" max="500" step="10" value="150"> </div>
+</div>
+<div id="regenerate-button-container">
+<button id="ctrl-regenerate">Apply & Regenerate World</button>
+</div>
+</div>
+<script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.164.1/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/" } } </script>
+<script type="module">import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const WORLD_SIZE = 20; const CHUNK_SIZE = 16; const DRAG_THRESHOLD = 5; const CLICK_MAX_DURATION = 250;
+const PANEL_TRANSITION_DELAY = 350; const RANDOM_VOXEL_ATTEMPTS = 50; const MIN_ROOM_SIZE_FACTOR = 0.12;
+const MAX_ROOM_SIZE_FACTOR = 0.35; const CORRIDOR_WIDTH = 0; const ROOM_PLACEMENT_ATTEMPTS = 15;
+const ROOM_START_POS_ATTEMPTS = 30; const DEFAULT_WORKER_COUNT_FALLBACK = 4;
+const DEBUG_FLASH_DURATION = 700; const PATH_REQ_INDICATOR_DURATION = 300;
+const TARGET_MARKER_DURATION = 1200; const ARRIVAL_PARTICLE_COUNT = 15; const ARRIVAL_PARTICLE_DURATION = 800;
+const PATH_COLOR_SHORT_THRESHOLD = 30; const PATH_COLOR_MEDIUM_THRESHOLD = 90; const BOID_SEEKING_BASE_COLOR = 0x5588bb;
+const BOID_SEEKING_EMISSIVE = 0x88ccff; const BOID_IDLE_COLOR = 0xaaaaaa; const BOID_FAILED_COLOR = 0xcc6666;
+const PATH_REQ_START_COLOR = 0x0088ff; const PATH_REQ_TARGET_COLOR = 0xff8800; const DEBUG_OPEN_COLOR = new THREE.Color(0x00ffff); const DEBUG_CLOSED_COLOR = new THREE.Color(0xff00ff);
+const PATH_SHORT_COLOR = 0x00ff00; const PATH_MEDIUM_COLOR = 0xffaa00; const PATH_LONG_COLOR = 0xff4444;
+const WIREFRAME_COLOR = 0xffffff; const GLOBAL_TARGET_COLOR = 0xffae5a; const RAYCAST_EPSILON = 0.01;
+const ABSOLUTE_MAX_NODES_SAFETY_CAP = 200000;
+const INTENT_LINE_COLOR = 0xffffff; const INTENT_LINE_OPACITY = 0.3;
+const DEBUG_POINT_EFFECTIVE_SCALE_FACTOR = 0.5; const DEBUG_CUBE_EFFECTIVE_SCALE_FACTOR = 5.0;
+const DEBUG_COLOR_TYPE_OPEN = 0; const DEBUG_COLOR_TYPE_CLOSED = 1;
+const FACES = [ { dir: [ 1,0,0], norm: [ 1,0,0] },{ dir: [-1,0,0], norm: [-1,0,0] },{ dir: [0, 1,0], norm: [0, 1,0] },{ dir: [0,-1,0], norm: [0,-1,0] },{ dir: [0,0, 1], norm: [0,0, 1] },{ dir: [0,0,-1], norm: [0,0,-1] }, ];
+const params = { GRID_RESOLUTION: 96, NUM_ROOMS: 25, NUM_BOIDS: 150, BOID_SPEED: 15.0, MAX_SEARCH_NODES: 150000, WORKER_COUNT: 6, WORLD_OPACITY: 0.30, WIREFRAME_OPACITY: 0.02, DEBUG_VIZ_OPACITY: 0.4, DEBUG_VIZ_SCALE: 3.0, debugVisType: 'points', MAX_DEBUG_INSTANCES: 16000, WORKER_DEBUG_SAMPLE_LIMIT: 500, DEBUG_UPDATE_INTERVAL: 150, INTERRUPT_COOLDOWN_MAX_MS: 500, FAILED_PATH_COOLDOWN_MS: 1500, SHOW_BOID_PATHS: true, PATH_LINE_OPACITY: 0.9 };
+let scene, camera, renderer, controls, clock, raycaster;
+let chunkMeshes = new Map(); let chunkWireframes = new Map(); let worldMeshMaterial = null; let wireframeMaterial = null;
+let debugPoints = null; let debugPointsMaterial = null; let debugPointsGeometry = null; let debugPointPositions = null; let debugPointColors = null; let debugPointStartTimes = null;
+let debugCubesMesh = null; let debugCubeGeometry = null; let debugCubeMaterial = null; let debugCubeInstanceColors = null; let debugCubeInstanceStartTimes = null;
+let debugInstanceCount = 0; let lastDebugUpdateTime = 0; let nextDebugInstanceIndex = 0; let debugVizEnabled = true; let bufferUpdateNeeded = false;
+let pendingDebugNodes = [];
+let tempIndicatorGeo, tempIndicatorMatStart, tempIndicatorMatTarget;
+let targetMarkerGeo, targetMarkerMat; let globalTargetMarker = null;
+let particleSystemPool = []; let activeParticleSystems = [];
+let intentLineMaterial = null;
+const pathLineMaterials = {};
+let debugOutput = ""; let voxelGridData = null; let emptyVoxelIndices = []; let generatedRooms = [];
+let gridOrigin = new THREE.Vector3(); let voxelSize = new THREE.Vector3(); let worldBounds = new THREE.Box3();
+let regenerationScheduled = false; let btnRegenerate;
+let isDragging = false; const mouseDownPos = new THREE.Vector2(); let mouseDownTime = 0;
+const boidsMap = new Map();
+let workerPool = []; let workerStatus = []; let workerObjectURL = null;
+let numWorkers = params.WORKER_COUNT;
+let descriptionArea, debugContainer, performanceContainer, debugArea, controlPanel, canvasContainer, performancePanel;
+let toggleDescBtn, toggleUiPanelsBtn, toggleControlsBtn;
+let resizeTimeout; let globalTargetGridPos = null; let boidManager;
+let fps = 0, frameCount = 0, lastFpsUpdateTime = 0, maxQueueSinceLastUpdate = 0, pathsCompletedSinceLastUpdate = 0, maxBusyWorkersSinceLastUpdate = 0;
+let pathfindingTimes = []; const PATHFINDING_AVG_COUNT = 50;
+let worldGenTime = 0, meshingTime = 0;
+let managerUpdateTime = 0, debugVizUpdateTime = 0, particleUpdateTime = 0, controlsUpdateTime = 0, renderTime = 0;
+function getWorkerCode() {
+const code = `
+                class PathNode { constructor(x, y, z, gCost = Infinity, hCost = 0, parent = null) { this.x = x; this.y = y; this.z = z; this.gCost = gCost; this.hCost = hCost; this.fCost = gCost + hCost; this.parent = parent; this.hash = \`\${x},\${y},\${z}\`; } }
+                class MinHeap { constructor() { this.heap = []; } insert(node) { this.heap.push(node); this.bubbleUp(this.heap.length - 1); } extractMin() { if (this.heap.length === 0) return null; const min = this.heap[0]; const last = this.heap.pop(); if (this.heap.length > 0) { this.heap[0] = last; this.sinkDown(0); } return min; } size() { return this.heap.length; } bubbleUp(index) { while (index > 0) { const parentIndex = Math.floor((index - 1) / 2); if (this.compare(this.heap[index], this.heap[parentIndex]) < 0) { [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]]; index = parentIndex; } else { break; } } } sinkDown(index) { const leftChildIndex = 2 * index + 1; const rightChildIndex = 2 * index + 2; let smallestIndex = index; if (leftChildIndex < this.heap.length && this.compare(this.heap[leftChildIndex], this.heap[smallestIndex]) < 0) { smallestIndex = leftChildIndex; } if (rightChildIndex < this.heap.length && this.compare(this.heap[rightChildIndex], this.heap[smallestIndex]) < 0) { smallestIndex = rightChildIndex; } if (smallestIndex !== index) { [this.heap[index], this.heap[smallestIndex]] = [this.heap[smallestIndex], this.heap[index]]; this.sinkDown(smallestIndex); } } compare(a, b) { if (a.fCost !== b.fCost) return a.fCost - b.fCost; return a.hCost - b.hCost; } }
+                let workerContext = { voxelGridData: null, resolution: 0 };
+                const ABSOLUTE_MAX_NODES_SAFETY_CAP = ${ABSOLUTE_MAX_NODES_SAFETY_CAP};
+                let MAX_SAMPLED_NODES_PER_WORKER = ${params.WORKER_DEBUG_SAMPLE_LIMIT};
+                const DEBUG_COLOR_TYPE_OPEN = ${DEBUG_COLOR_TYPE_OPEN};
+                const DEBUG_COLOR_TYPE_CLOSED = ${DEBUG_COLOR_TYPE_CLOSED};
+
+                function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+                function isVoxelOccupied(ix, iy, iz) { const res = workerContext.resolution; if (!workerContext.voxelGridData || ix < 0 || ix >= res || iy < 0 || iy >= res || iz < 0 || iz >= res) { return true; } return workerContext.voxelGridData[ix]?.[iy]?.[iz] ?? true; }
+                function heuristic(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z); }
+                function getNeighbors(node) { const neighbors = []; const dirs = [ { x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 } ]; for (const dir of dirs) { const nx = node.x + dir.x; const ny = node.y + dir.y; const nz = node.z + dir.z; if (!isVoxelOccupied(nx, ny, nz)) { neighbors.push({ x: nx, y: ny, z: nz }); } } return neighbors; }
+                function reconstructPathGrid(endNode) { const path = []; let current = endNode; while (current !== null) { path.push({ x: current.x, y: current.y, z: current.z }); current = current.parent; } return path.reverse(); }
+
+                function sampleDebugNodes(openMap, closedMap) {
+                    const allExploredNodes = [];
+                    openMap.forEach(n => allExploredNodes.push({ x: n.x, y: n.y, z: n.z, type: DEBUG_COLOR_TYPE_OPEN }));
+                    closedMap.forEach(n => allExploredNodes.push({ x: n.x, y: n.y, z: n.z, type: DEBUG_COLOR_TYPE_CLOSED }));
+
+                    if (MAX_SAMPLED_NODES_PER_WORKER <= 0) return [];
+                    if (allExploredNodes.length <= MAX_SAMPLED_NODES_PER_WORKER) {
+                        return allExploredNodes;
+                    } else {
+                        shuffleArray(allExploredNodes);
+                        return allExploredNodes.slice(0, MAX_SAMPLED_NODES_PER_WORKER);
+                    }
+                }
+
+                function findPath(startGrid, endGrid, maxNodes, sendDebugData) {
+                    const openSet = new MinHeap(); const closedSet = new Map(); const openSetMap = new Map();
+                    const startNode = new PathNode(startGrid.x, startGrid.y, startGrid.z, 0, heuristic(startGrid, endGrid));
+                    openSet.insert(startNode); openSetMap.set(startNode.hash, startNode);
+                    let nodesProcessed = 0; const actualNodeLimit = Math.min(maxNodes, ABSOLUTE_MAX_NODES_SAFETY_CAP);
+
+                    while (openSet.size() > 0 && nodesProcessed < actualNodeLimit) {
+                        nodesProcessed++;
+                        const currentNode = openSet.extractMin();
+                        if(!currentNode || closedSet.has(currentNode.hash)) { continue; }
+                        closedSet.set(currentNode.hash, currentNode);
+                        openSetMap.delete(currentNode.hash);
+
+                        if (currentNode.x === endGrid.x && currentNode.y === endGrid.y && currentNode.z === endGrid.z) {
+                            const finalPath = reconstructPathGrid(currentNode);
+                            let sampledNodes = null;
+                            if (sendDebugData) { sampledNodes = sampleDebugNodes(openSetMap, closedSet); }
+                            return { status: 'success', path: finalPath, debugNodes: sampledNodes };
+                        }
+
+                        const neighbors = getNeighbors(currentNode);
+                        for (const neighborPos of neighbors) {
+                            const neighborHash = \`\${neighborPos.x},\${neighborPos.y},\${neighborPos.z}\`;
+                            if (closedSet.has(neighborHash)) { continue; }
+                            const tentativeGCost = currentNode.gCost + 1;
+                            let neighborNode = openSetMap.get(neighborHash);
+                            if (!neighborNode || tentativeGCost < neighborNode.gCost) {
+                                const h = heuristic(neighborPos, endGrid);
+                                const f = tentativeGCost + h;
+                                if (neighborNode) {
+                                    neighborNode.parent = currentNode; neighborNode.gCost = tentativeGCost;
+                                    neighborNode.hCost = h; neighborNode.fCost = f;
+                                    openSet.insert(neighborNode);
+                                } else {
+                                    neighborNode = new PathNode(neighborPos.x, neighborPos.y, neighborPos.z, tentativeGCost, h, currentNode);
+                                    openSet.insert(neighborNode); openSetMap.set(neighborHash, neighborNode);
+                                }
+                            }
+                        }
+                    }
+                    const failureReason = nodesProcessed >= actualNodeLimit ? 'failure_limit' : 'failure';
+                    let sampledNodes = null;
+                    if (sendDebugData) { sampledNodes = sampleDebugNodes(openSetMap, closedSet); }
+                    return { status: failureReason, path: null, debugNodes: sampledNodes };
+                }
+
+                self.onmessage = function(e) {
+                    const task = e.data;
+                    if (task.type === 'findPath') {
+                        const result = findPath(task.start, task.end, task.maxNodes, task.sendDebugData);
+                        self.postMessage({ type: 'pathResult', boidId: task.boidId, requestStartTime: task.requestStartTime, status: result.status, path: result.path, debugNodes: result.debugNodes });
+                    } else if (task.type === 'updateContext') {
+                        workerContext.voxelGridData = task.grid;
+                        workerContext.resolution = task.resolution;
+                    } else if (task.type === 'updateParam') {
+                         if(task.param === 'WORKER_DEBUG_SAMPLE_LIMIT') {
+                            MAX_SAMPLED_NODES_PER_WORKER = task.value;
+                         }
+                    }
+                 };
+            `;
+return code;
+}
+class BoidManager {
+constructor(workerPoolRef, workerStatusRef) { this.boids = []; this.pathRequestQueue = []; this.workerPool = workerPoolRef; this.workerStatus = workerStatusRef; this.wanderCheckInterval = 350 + Math.random() * 200; this.lastWanderCheck = 0; this.targetRepathCheckInterval = 250 + Math.random() * 150; this.lastTargetRepathCheck = 0; }
+addBoid(boid) { this.boids.push(boid); boid.manager = this; }
+removeBoid(boid) { this.boids = this.boids.filter(b => b.id !== boid.id); this.pathRequestQueue = this.pathRequestQueue.filter(req => req.boidId !== boid.id); }
+clearAll() { this.boids = []; this.pathRequestQueue = []; }
+queuePathRequest(boid, startGrid, targetGrid, maxNodes) {
+if (!boid || !boidsMap.has(boid.id) || boid.state === 'seeking_path' || boid.state === 'moving' || boid.state === 'idle_interrupted' || boid.state === 'failed_path') return;
+boid.setState('seeking_path', targetGrid); flashPathRequestIndicators(startGrid, targetGrid);
+this.pathRequestQueue.push({ boidId: boid.id, startGridPos: startGrid, targetGridPos: targetGrid, maxNodes: maxNodes, requestStartTime: performance.now() });
+maxQueueSinceLastUpdate = Math.max(maxQueueSinceLastUpdate, this.pathRequestQueue.length);
+this.assignTasks();
+}
+assignTasks() {
+if (!voxelGridData || this.workerPool.length === 0 || this.pathRequestQueue.length === 0) return;
+maxQueueSinceLastUpdate = Math.max(maxQueueSinceLastUpdate, this.pathRequestQueue.length);
+let currentBusy = this.workerStatus.filter(s => s).length; maxBusyWorkersSinceLastUpdate = Math.max(maxBusyWorkersSinceLastUpdate, currentBusy);
+for (let i = 0; i < this.workerPool.length; i++) {
+if (!this.workerStatus[i] && this.pathRequestQueue.length > 0) {
+const request = this.pathRequestQueue.shift(); const boid = boidsMap.get(request.boidId);
+if (!boid || boid.state !== 'seeking_path') { this.workerStatus[i] = false; continue; }
+this.workerStatus[i] = true; this.workerPool[i].postMessage({ type: 'findPath', boidId: request.boidId, start: request.startGridPos, end: request.targetGridPos, maxNodes: request.maxNodes, requestStartTime: request.requestStartTime, sendDebugData: debugVizEnabled });
+}
+if (this.pathRequestQueue.length === 0) break;
+}
+maxBusyWorkersSinceLastUpdate = Math.max(maxBusyWorkersSinceLastUpdate, this.workerStatus.filter(s => s).length);
+}
+handleWorkerResult(result) {
+pathsCompletedSinceLastUpdate++;
+if (result.workerIndex != null && result.workerIndex >= 0 && result.workerIndex < this.workerStatus.length) { this.workerStatus[result.workerIndex] = false; } else { console.error(`HandleResult: Invalid workerIndex ${result.workerIndex} received.`); }
+maxBusyWorkersSinceLastUpdate = Math.max(maxBusyWorkersSinceLastUpdate, this.workerStatus.filter(s => s).length);
+const boid = boidsMap.get(result.boidId);
+if (result.requestStartTime != null) { const duration = performance.now() - result.requestStartTime; pathfindingTimes.push(duration); if (pathfindingTimes.length > PATHFINDING_AVG_COUNT) pathfindingTimes.shift(); }
+if (boid) {
+if(boid.state === 'seeking_path') {
+boid.setPath(result.path, result.status);
+if (debugVizEnabled && result.debugNodes) {
+queueDebugNodesForVisualization(result.debugNodes);
+}
+} else {
+clearDebugVisualizationForBoid(boid.id);
+}
+} else {
+clearDebugVisualizationForBoid(result.boidId);
+}
+this.assignTasks();
+}
+manageIdleBoidsForWander(currentTime) {
+if (globalTargetGridPos || this.boids.length === 0) return; if (currentTime - this.lastWanderCheck < this.wanderCheckInterval) return; this.lastWanderCheck = currentTime;
+const idleBoids = this.boids.filter(b => b.state === 'idle'); if (idleBoids.length === 0) return;
+const availableSlots = numWorkers - this.workerStatus.filter(s => s).length - this.pathRequestQueue.length;
+const wanderersToQueue = Math.min(idleBoids.length, Math.max(0, availableSlots));
+if (wanderersToQueue > 0) { if(idleBoids.length > wanderersToQueue) { for (let i = idleBoids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idleBoids[i], idleBoids[j]] = [idleBoids[j], idleBoids[i]]; } } for (let i = 0; i < wanderersToQueue; i++) { const boid = idleBoids[i]; if(boid && boidsMap.has(boid.id)) { boid.requestNewPath(); } } }
+}
+manageIdleBoidsForGlobalTarget(currentTime) {
+if (!globalTargetGridPos || this.boids.length === 0) return; if (currentTime - this.lastTargetRepathCheck < this.targetRepathCheckInterval) return; this.lastTargetRepathCheck = currentTime;
+const idleBoidsNeedingPath = []; for (const boid of this.boids) { if (boid.state === 'idle') { const startGrid = worldToGridIndices(boid.mesh.position); if (startGrid && (startGrid.x !== globalTargetGridPos.x || startGrid.y !== globalTargetGridPos.y || startGrid.z !== globalTargetGridPos.z)) { idleBoidsNeedingPath.push(boid); } } }
+if (idleBoidsNeedingPath.length === 0) return; const availableSlots = numWorkers - this.workerStatus.filter(s => s).length - this.pathRequestQueue.length;
+const boidsToQueue = Math.min(idleBoidsNeedingPath.length, Math.max(0, availableSlots));
+if (boidsToQueue > 0) { if(idleBoidsNeedingPath.length > boidsToQueue) { for (let i = idleBoidsNeedingPath.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idleBoidsNeedingPath[i], idleBoidsNeedingPath[j]] = [idleBoidsNeedingPath[j], idleBoidsNeedingPath[i]]; } } for (let i = 0; i < boidsToQueue; i++) { const boid = idleBoidsNeedingPath[i]; if (boid && boidsMap.has(boid.id) && boid.state === 'idle') { boid.requestNewPath(); } } }
+}
+update(deltaTime, time) { const start = performance.now(); this.manageIdleBoidsForWander(time); this.manageIdleBoidsForGlobalTarget(time); this.boids.forEach(boid => { if(boidsMap.has(boid.id)) { boid.update(deltaTime, time); } }); managerUpdateTime = performance.now() - start; }
+interruptAllForNewTarget() {
+logDebug(`Interrupting all ${boidsMap.size} boids for new target.`); this.pathRequestQueue = []; const interruptedBoids = [];
+boidsMap.forEach(boid => { boid.interruptAndGoIdle(); interruptedBoids.push(boid); });
+logDebug(`Interrupt finished. Queueing initial burst...`);
+const initialQueueCount = Math.min(interruptedBoids.length, numWorkers);
+if (interruptedBoids.length > initialQueueCount) { for (let i = interruptedBoids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [interruptedBoids[i], interruptedBoids[j]] = [interruptedBoids[j], interruptedBoids[i]]; } }
+for(let i=0; i < initialQueueCount; i++) { const boid = interruptedBoids[i]; if(boid && boidsMap.has(boid.id)) { const startGrid = worldToGridIndices(boid.mesh.position); if (startGrid && globalTargetGridPos) { this.queuePathRequest(boid, startGrid, globalTargetGridPos, params.MAX_SEARCH_NODES); } } }
+logDebug(`Queued ${initialQueueCount} initial paths. Manager handles rest.`);
+}
+triggerWanderFromTarget(oldTargetGrid) { if(!oldTargetGrid) return; let wanderCount = 0; boidsMap.forEach(boid => { const currentGridPos = worldToGridIndices(boid.mesh.position); if(boid.state === 'idle' && currentGridPos && currentGridPos.x === oldTargetGrid.x && currentGridPos.y === oldTargetGrid.y && currentGridPos.z === oldTargetGrid.z) { boid.interruptAndGoIdle(); wanderCount++; } }); if(wanderCount > 0) logDebug(`Triggered ${wanderCount} idle boids at old target to idle state (will path randomly).`); }
+}
+class Boid {
+constructor(startPos, managerRef) {
+this.id = THREE.MathUtils.generateUUID(); this.speed = params.BOID_SPEED; this.baseColor = new THREE.Color().setHSL(Math.random()*0.6+0.5,0.95,0.7);
+const sz_x = voxelSize && voxelSize.x > 0 ? voxelSize.x : 0.2; const boidSize = Math.max(0.1,sz_x*0.7);
+const geometry = new THREE.IcosahedronGeometry(boidSize,1); geometry.name=`BoidGeo_${this.id.substring(0, 6)}`;
+this.material = new THREE.MeshStandardMaterial({color:this.baseColor.clone(),roughness:0.3,metalness:0.2,emissive:0x000000,emissiveIntensity:1.0, name: `BoidMat_${this.id.substring(0,4)}`});
+this.mesh = new THREE.Mesh(geometry,this.material); this.mesh.name = `BoidMesh_${this.id.substring(0, 6)}`; this.mesh.position.copy(startPos); this.mesh.renderOrder = 1; scene.add(this.mesh);
+this.currentPath = null; this.pathIndex = 0; this._state = 'idle'; this.targetGridPos = null; this.pathLine = null; this.intentLine = null; this.targetMarker = null;
+this.isMovingToGlobalTarget = false; this.pathRequestCooldown = 0; this.failedPathCooldown = 0;
+this.manager = managerRef;
+this.setState('idle');
+}
+get state() { return this._state; }
+setState(newState, targetForIntent = null) {
+if(this._state === newState) return; this._state = newState; this.clearIntentLine();
+switch(newState){
+case 'idle': case 'idle_interrupted': this.material.emissive.setHex(0x000000); this.material.color.setHex(BOID_IDLE_COLOR); this.clearTargetMarker(); break;
+case 'failed_path': this.material.emissive.setHex(0x000000); this.material.color.setHex(BOID_FAILED_COLOR); this.clearTargetMarker(); this.failedPathCooldown = params.FAILED_PATH_COOLDOWN_MS + Math.random() * 1000; break;
+case 'seeking_path': this.material.emissive.setHex(BOID_SEEKING_EMISSIVE); this.material.color.setHex(BOID_SEEKING_BASE_COLOR); this.clearTargetMarker(); if(targetForIntent) { this.targetGridPos = targetForIntent; this.drawIntentLine(); } break;
+case 'moving': this.material.emissive.setHex(0x000000); this.material.color.copy(this.baseColor); if(!this.isMovingToGlobalTarget){this.showTargetMarker();}else{this.clearTargetMarker();} break;
+}
+}
+update(deltaTime, time) {
+if (!this.mesh || !this.material) return;
+this.speed = params.BOID_SPEED;
+if(this.state === 'seeking_path'){ this.material.emissiveIntensity = Math.sin(time*0.008)*0.4+0.6; } else { this.material.emissiveIntensity = 1.0; }
+if(this.state === 'moving' && this.currentPath){
+if(this.pathIndex >= this.currentPath.length){
+spawnArrivalParticles(this.mesh.position); const wasGlobal = this.isMovingToGlobalTarget;
+this.currentPath = null; this.clearPathLine(); this.isMovingToGlobalTarget = false;
+this.setState('idle'); if (!globalTargetGridPos && !wasGlobal) { this.pathRequestCooldown = Math.random() * 100; this.setState('idle_interrupted'); } return;
+}
+const target = this.currentPath[this.pathIndex]; const dir = target.clone().sub(this.mesh.position);
+const distSq = dir.lengthSq(); const move = Math.min(Math.sqrt(distSq),this.speed*deltaTime); const thresholdSq = (voxelSize && voxelSize.x > 0 ? voxelSize.x * voxelSize.x * 0.09 : 0.01);
+if(distSq < thresholdSq){ this.pathIndex++; } else { dir.normalize(); this.mesh.position.addScaledVector(dir,move); const look = this.pathIndex+1 < this.currentPath.length ? this.currentPath[this.pathIndex+1] : target; if(look.distanceToSquared(this.mesh.position) > 0.01){ this.mesh.lookAt(look); } }
+if(this.targetMarker && !this.isMovingToGlobalTarget && this.currentPath.length > 0){ this.targetMarker.position.copy(this.currentPath[this.currentPath.length-1]); }
+} else if (this.state === 'idle_interrupted') {
+this.pathRequestCooldown -= deltaTime * 1000; if (this.pathRequestCooldown <= 0) { this.setState('idle'); }
+} else if (this.state === 'failed_path') {
+this.failedPathCooldown -= deltaTime * 1000; if (this.failedPathCooldown <= 0) { this.setState('idle'); }
+}
+if(this.state === 'seeking_path' && this.intentLine && this.targetGridPos) { this.updateIntentLine(); }
+}
+requestNewPath() {
+if(this.state === 'seeking_path' || this.state === 'moving' || this.state === 'idle_interrupted' || this.state === 'failed_path' || emptyVoxelIndices.length < 1 || !voxelGridData || !this.manager) return;
+const startGrid = worldToGridIndices(this.mesh.position); if (!startGrid) { this.setState('idle'); return; }
+let targetPos = null; this.isMovingToGlobalTarget = false;
+if(globalTargetGridPos){ if(startGrid.x===globalTargetGridPos.x && startGrid.y===globalTargetGridPos.y && startGrid.z===globalTargetGridPos.z){ this.setState('idle'); return; } else { targetPos = globalTargetGridPos; this.isMovingToGlobalTarget = true; }
+} else { if(emptyVoxelIndices.length < 2 && !(emptyVoxelIndices.length === 1 && (emptyVoxelIndices[0].x !== startGrid.x || emptyVoxelIndices[0].y !== startGrid.y || emptyVoxelIndices[0].z !== startGrid.z))) { this.setState('idle'); return; } targetPos = getRandomEmptyVoxelIndex(); let attempts = 0; while(targetPos && targetPos.x===startGrid.x && targetPos.y===startGrid.y && targetPos.z===startGrid.z && attempts < RANDOM_VOXEL_ATTEMPTS){ if(emptyVoxelIndices.length <= 1){ targetPos = null; break; } targetPos = getRandomEmptyVoxelIndex(); attempts++; } if(attempts >= RANDOM_VOXEL_ATTEMPTS && targetPos && targetPos.x===startGrid.x && targetPos.y===startGrid.y && targetPos.z===startGrid.z){ targetPos = null; } if(targetPos){ this.isMovingToGlobalTarget = false; } else { this.setState('idle'); return; } }
+if(targetPos){ this.manager.queuePathRequest(this, startGrid, targetPos, params.MAX_SEARCH_NODES); }
+}
+setPath(pathGridCoords, status = 'success') {
+clearDebugVisualizationForBoid(this.id); this.clearIntentLine(); this.clearPathLine();
+if(status === 'success' && pathGridCoords && pathGridCoords.length > 0){
+this.currentPath = convertGridPathToWorld(pathGridCoords); this.pathIndex = 0; this.setState('moving'); this.drawPathLine(pathGridCoords.length);
+} else { if (this.state === 'seeking_path') { if (status === 'failure_limit') { logDebug(`Path FAILED (Limit: ${params.MAX_SEARCH_NODES}) for Boid ${this.id.substring(0,6)}.`); } else if (status === 'failure') { logDebug(`Path FAILED (Unreachable?) for Boid ${this.id.substring(0,6)}.`); } else { logDebug(`Path empty/null for Boid ${this.id.substring(0,6)}.`); } this.isMovingToGlobalTarget = false; this.setState('failed_path'); this.currentPath = null; } }
+}
+interruptAndGoIdle() {
+const wasActive = this.state === 'moving' || this.state === 'seeking_path';
+if(wasActive || this.state === 'idle_interrupted' || this.state === 'failed_path' || this.state === 'idle') {
+clearDebugVisualizationForBoid(this.id); this.clearPathLine(); this.clearIntentLine(); this.currentPath = null; this.pathIndex = 0; this.isMovingToGlobalTarget = false; this.targetGridPos = null; this.pathRequestCooldown = Math.random() * params.INTERRUPT_COOLDOWN_MAX_MS; this.failedPathCooldown = 0; this.setState('idle_interrupted');
+}
+}
+drawPathLine(gridLength) {
+this.clearPathLine();
+if (!params.SHOW_BOID_PATHS || !this.currentPath || this.currentPath.length < 2) {
+return;
+}
+const g = new THREE.BufferGeometry().setFromPoints(this.currentPath);
+let colorHex = PATH_LONG_COLOR;
+if (gridLength <= PATH_COLOR_SHORT_THRESHOLD) colorHex = PATH_SHORT_COLOR;
+else if (gridLength <= PATH_COLOR_MEDIUM_THRESHOLD) colorHex = PATH_MEDIUM_COLOR;
+if (!pathLineMaterials[colorHex]) {
+pathLineMaterials[colorHex] = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: params.PATH_LINE_OPACITY, depthTest: false });
+} else {
+pathLineMaterials[colorHex].opacity = params.PATH_LINE_OPACITY;
+}
+this.pathLine = new THREE.Line(g, pathLineMaterials[colorHex]);
+this.pathLine.name = `PathLine_${this.id.substring(0, 6)}`;
+this.pathLine.renderOrder = 3;
+scene.add(this.pathLine);
+}
+drawIntentLine() {
+this.clearIntentLine(); if (!this.targetGridPos || !this.mesh) return; if (!intentLineMaterial) { intentLineMaterial = new THREE.LineBasicMaterial({ color: INTENT_LINE_COLOR, transparent: true, opacity: INTENT_LINE_OPACITY, depthTest: false, linewidth: 1 }); } const targetWorldPos = gridToWorldCenter(this.targetGridPos.x, this.targetGridPos.y, this.targetGridPos.z); const points = [this.mesh.position.clone(), targetWorldPos]; const geometry = new THREE.BufferGeometry().setFromPoints(points);
+this.intentLine = new THREE.Line(geometry, intentLineMaterial); this.intentLine.name = `IntentLine_${this.id.substring(0, 6)}`; this.intentLine.renderOrder = 2.9; scene.add(this.intentLine);
+}
+updateIntentLine() { if (!this.intentLine || !this.mesh || !this.targetGridPos) { this.clearIntentLine(); return; } const positions = this.intentLine.geometry.attributes.position; const targetWorldPos = gridToWorldCenter(this.targetGridPos.x, this.targetGridPos.y, this.targetGridPos.z); positions.setXYZ(0, this.mesh.position.x, this.mesh.position.y, this.mesh.position.z); positions.setXYZ(1, targetWorldPos.x, targetWorldPos.y, targetWorldPos.z); positions.needsUpdate = true; this.intentLine.geometry.computeBoundingSphere(); }
+clearIntentLine() { if (this.intentLine) { if (this.intentLine.parent) scene.remove(this.intentLine); this.intentLine.geometry.dispose(); this.intentLine = null; } }
+showTargetMarker() { if (!this.currentPath || this.currentPath.length === 0 || this.isMovingToGlobalTarget) return; this.clearTargetMarker(); if (!targetMarkerGeo || !targetMarkerMat) { const size = Math.max(0.08, (voxelSize && voxelSize.x > 0 ? voxelSize.x : 0.2) * 0.4); targetMarkerGeo = new THREE.SphereGeometry(size, 8, 6); targetMarkerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthTest: false }); targetMarkerGeo.name = "SharedBoidTargetMarkerGeo"; targetMarkerMat.name = "SharedBoidTargetMarkerMat"; } this.targetMarker = new THREE.Mesh(targetMarkerGeo, targetMarkerMat); this.targetMarker.name = `TargetMarker_${this.id.substring(0, 6)}`; this.targetMarker.position.copy(this.currentPath[this.currentPath.length - 1]); this.targetMarker.renderOrder = 4; scene.add(this.targetMarker); setTimeout(() => { if (this.targetMarker && this.targetMarker.parent) { scene.remove(this.targetMarker); this.targetMarker = null; } }, TARGET_MARKER_DURATION); }
+clearTargetMarker() { if(this.targetMarker) { if (this.targetMarker.parent) scene.remove(this.targetMarker); this.targetMarker = null; } }
+clearPathLine() { this.clearTargetMarker(); if (this.pathLine) { if (this.pathLine.parent) scene.remove(this.pathLine); if (this.pathLine.geometry) this.pathLine.geometry.dispose(); this.pathLine = null; } }
+dispose() { this.interruptAndGoIdle(); this.clearIntentLine(); if (this.mesh) { if (this.mesh.parent) { scene.remove(this.mesh); } if (this.mesh.geometry) { this.mesh.geometry.dispose(); } this.mesh = null; } if (this.material) { this.material.dispose(); this.material = null; } this.currentPath = null; this.targetGridPos = null; if (this.manager) { this.manager.removeBoid(this); this.manager = null; } boidsMap.delete(this.id); }
+}
+function clearAllBoids() { if (boidsMap.size === 0) return; const boidIds = Array.from(boidsMap.keys()); boidIds.forEach(id => { const boid = boidsMap.get(id); if (boid) { boid.dispose(); } }); clearDebugVisualizations(); }
+function initializeWorkers() {
+terminateWorkers(); workerPool = []; workerStatus = []; pathfindingTimes = [];
+const wcSpan=document.getElementById('ctrl-worker-count'); numWorkers = params.WORKER_COUNT; logDebug(`Initializing ${numWorkers} workers (Sample Limit: ${params.WORKER_DEBUG_SAMPLE_LIMIT})...`);
+const currentWorkerCode = getWorkerCode();
+try { const blob = new Blob([currentWorkerCode], { type: 'application/javascript' }); workerObjectURL = URL.createObjectURL(blob); } catch (err) { console.error("Blob fail:", err); logDebug(`FATAL: Blob URL failed.`); if(wcSpan) wcSpan.textContent = `0 (Error)`; numWorkers=0; boidManager=null; return; }
+for (let i = 0; i < numWorkers; i++) { try { const w = new Worker(workerObjectURL); w.onmessage = (e) => { if(boidManager) boidManager.handleWorkerResult({...e.data, workerIndex: i}); }; w.onerror = (err) => { console.error(`Worker ${i} Err:`, err.message); logDebug(`ERR Worker ${i}: ${err.message}`); if(i < workerStatus.length) workerStatus[i] = false; if(boidManager) boidManager.assignTasks(); }; workerPool.push(w); workerStatus.push(false); } catch (err) { console.error("Worker create fail:", err); logDebug(`FATAL: Fail worker ${i}`); numWorkers=i; if(wcSpan) wcSpan.textContent = `${numWorkers} (Error)`; for(let j=0; j<i; j++){ try{ workerPool[j].terminate(); }catch(e){} } workerPool = []; workerStatus = []; if(workerObjectURL){ try { URL.revokeObjectURL(workerObjectURL); } catch(e){} workerObjectURL = null; } boidManager=null; return; } }
+document.getElementById('ctrl-worker-count').value = numWorkers;
+updateWorkersParam('WORKER_DEBUG_SAMPLE_LIMIT', params.WORKER_DEBUG_SAMPLE_LIMIT);
+logDebug(`Workers Init: ${workerPool.length}`);
+boidManager = new BoidManager(workerPool, workerStatus);
+}
+function updateWorkersParam(param, value) {
+if (workerPool && workerPool.length > 0) {
+workerPool.forEach(w => w.postMessage({ type: 'updateParam', param: param, value: value }));
+}
+}
+function terminateWorkers() {
+if (workerPool.length > 0) { logDebug(`Terminating ${workerPool.length} workers...`); } workerPool.forEach((w) => { try { w.terminate(); } catch (e) {} });
+if (workerObjectURL) { try { URL.revokeObjectURL(workerObjectURL); } catch(e){} workerObjectURL = null; } workerPool = []; workerStatus = [];
+if(boidManager) { boidManager.pathRequestQueue = []; }
+clearDebugVisualizations(); clearParticles(); removeGlobalTargetMarker();
+if (globalTargetMarker) { if (globalTargetMarker.geometry) globalTargetMarker.geometry.dispose(); if (globalTargetMarker.material) globalTargetMarker.material.dispose(); globalTargetMarker = null; }
+if (tempIndicatorGeo) { tempIndicatorGeo.dispose(); tempIndicatorGeo = null;} if (tempIndicatorMatStart) { tempIndicatorMatStart.dispose(); tempIndicatorMatStart = null;} if (tempIndicatorMatTarget) { tempIndicatorMatTarget.dispose(); tempIndicatorMatTarget = null;}
+if (targetMarkerGeo) { targetMarkerGeo.dispose(); targetMarkerGeo = null; } if (targetMarkerMat) { targetMarkerMat.dispose(); targetMarkerMat = null; }
+if (intentLineMaterial) { intentLineMaterial.dispose(); intentLineMaterial = null; }
+Object.values(pathLineMaterials).forEach(mat => mat.dispose()); Object.keys(pathLineMaterials).forEach(key => delete pathLineMaterials[key]);
+}
+function flashPathRequestIndicators(startGrid, endGrid) {
+if (!voxelSize || voxelSize.x === 0) return;
+if (!tempIndicatorGeo) { const sz = Math.max(0.1, Math.min(voxelSize.x, voxelSize.y, voxelSize.z) * 1.1); tempIndicatorGeo = new THREE.BoxGeometry(sz, sz, sz); tempIndicatorMatStart = new THREE.MeshBasicMaterial({ color: PATH_REQ_START_COLOR, transparent: true, opacity: 0.6, depthTest: false }); tempIndicatorMatTarget = new THREE.MeshBasicMaterial({ color: PATH_REQ_TARGET_COLOR, transparent: true, opacity: 0.6, depthTest: false }); }
+const si = new THREE.Mesh(tempIndicatorGeo, tempIndicatorMatStart); si.position.copy(gridToWorldCenter(startGrid.x, startGrid.y, startGrid.z)); si.renderOrder = 4; scene.add(si);
+const ei = new THREE.Mesh(tempIndicatorGeo, tempIndicatorMatTarget); ei.position.copy(gridToWorldCenter(endGrid.x, endGrid.y, endGrid.z)); ei.renderOrder = 4; scene.add(ei);
+setTimeout(() => { if(si.parent) scene.remove(si); if(ei.parent) scene.remove(ei); }, PATH_REQ_INDICATOR_DURATION);
+}
+const vertexShaderPoints = `
+            attribute vec3 color; attribute float startTime; uniform float u_time; uniform float u_pointScale; uniform float u_debugVizOpacity; uniform float u_voxelSize; varying vec3 vColor; varying float vOpacity;
+            void main() { float elapsed = u_time - startTime; float duration = ${DEBUG_FLASH_DURATION.toFixed(1)}; float progress = clamp(elapsed / duration, 0.0, 1.0); vColor = color; vOpacity = sin(progress * 3.14159) * u_debugVizOpacity; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition; float baseSize = max(1.0, u_voxelSize * u_pointScale * 5.0); gl_PointSize = baseSize * (200.0 / -mvPosition.z); gl_PointSize = max(2.0, gl_PointSize); }`;
+const fragmentShaderPoints = `varying vec3 vColor; varying float vOpacity; void main() { if (vOpacity <= 0.01) discard; vec2 cxy = 2.0 * gl_PointCoord - 1.0; float r = dot(cxy, cxy); if (r > 1.0) { discard; } gl_FragColor = vec4(vColor, vOpacity); }`;
+const vertexShaderCubes = `
+            attribute vec3 instanceColor; attribute float instanceStartTime; uniform float u_time; uniform float u_debugVizOpacity; varying vec3 vColor; varying float vOpacity;
+            void main() { float elapsed = u_time - instanceStartTime; float duration = ${DEBUG_FLASH_DURATION.toFixed(1)}; float progress = clamp(elapsed / duration, 0.0, 1.0); vColor = instanceColor; vOpacity = sin(progress * 3.14159) * u_debugVizOpacity; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`;
+const fragmentShaderCubes = `varying vec3 vColor; varying float vOpacity; void main() { if (vOpacity <= 0.01) discard; gl_FragColor = vec4(vColor, vOpacity); }`;
+function initDebugVisualizations() {
+if (debugPoints && debugPoints.parent) scene.remove(debugPoints); if (debugCubesMesh && debugCubesMesh.parent) scene.remove(debugCubesMesh);
+if (debugPointsGeometry) debugPointsGeometry.dispose(); if (debugPointsMaterial) debugPointsMaterial.dispose(); if (debugCubeGeometry) debugCubeGeometry.dispose(); if (debugCubeMaterial) debugCubeMaterial.dispose();
+const maxInstances = params.MAX_DEBUG_INSTANCES;
+debugPointsGeometry = new THREE.BufferGeometry(); debugPointPositions = new Float32Array(maxInstances * 3); debugPointColors = new Float32Array(maxInstances * 3); debugPointStartTimes = new Float32Array(maxInstances);
+debugPointsGeometry.setAttribute('position', new THREE.BufferAttribute(debugPointPositions, 3).setUsage(THREE.DynamicDrawUsage)); debugPointsGeometry.setAttribute('color', new THREE.BufferAttribute(debugPointColors, 3).setUsage(THREE.DynamicDrawUsage)); debugPointsGeometry.setAttribute('startTime', new THREE.BufferAttribute(debugPointStartTimes, 1).setUsage(THREE.DynamicDrawUsage));
+debugPointsMaterial = new THREE.ShaderMaterial({ uniforms: { u_time: { value: 0.0 }, u_pointScale: { value: params.DEBUG_VIZ_SCALE * DEBUG_POINT_EFFECTIVE_SCALE_FACTOR }, u_debugVizOpacity: { value: params.DEBUG_VIZ_OPACITY }, u_voxelSize: { value: Math.min(voxelSize.x || 0.1, voxelSize.y || 0.1, voxelSize.z || 0.1) } }, vertexShader: vertexShaderPoints, fragmentShader: fragmentShaderPoints, transparent: true, depthTest: false, depthWrite: false, });
+debugPoints = new THREE.Points(debugPointsGeometry, debugPointsMaterial); debugPoints.renderOrder = 10; debugPoints.name = "DebugPoints"; debugPoints.frustumCulled = false;
+const cubeScaleBase = Math.min(voxelSize.x, voxelSize.y, voxelSize.z) || 0.1; debugCubeGeometry = new THREE.BoxGeometry(cubeScaleBase, cubeScaleBase, cubeScaleBase);
+debugCubeMaterial = new THREE.ShaderMaterial({ uniforms: { u_time: { value: 0.0 }, u_debugVizOpacity: { value: params.DEBUG_VIZ_OPACITY } }, vertexShader: vertexShaderCubes, fragmentShader: fragmentShaderCubes, transparent: true, depthTest: false, depthWrite: false, });
+debugCubesMesh = new THREE.InstancedMesh(debugCubeGeometry, debugCubeMaterial, maxInstances); debugCubesMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+debugCubeInstanceColors = new Float32Array(maxInstances * 3); debugCubeInstanceStartTimes = new Float32Array(maxInstances);
+debugCubesMesh.geometry.setAttribute('instanceColor', new THREE.InstancedBufferAttribute(debugCubeInstanceColors, 3).setUsage(THREE.DynamicDrawUsage));
+debugCubesMesh.geometry.setAttribute('instanceStartTime', new THREE.InstancedBufferAttribute(debugCubeInstanceStartTimes, 1).setUsage(THREE.DynamicDrawUsage));
+debugCubesMesh.renderOrder = 10; debugCubesMesh.name = "DebugCubes"; debugCubesMesh.count = 0;
+if (params.debugVisType === 'points') { if(debugPoints) scene.add(debugPoints); } else { if(debugCubesMesh) scene.add(debugCubesMesh); }
+debugInstanceCount = 0; nextDebugInstanceIndex = 0; bufferUpdateNeeded = true;
+pendingDebugNodes = [];
+if(debugPointsGeometry) debugPointsGeometry.setDrawRange(0, 0); if(debugCubesMesh) debugCubesMesh.count = 0;
+}
+function switchDebugVisType(newType) {
+if (newType === params.debugVisType) return;
+if (params.debugVisType === 'points' && debugPoints && debugPoints.parent) scene.remove(debugPoints);
+if (params.debugVisType === 'cubes' && debugCubesMesh && debugCubesMesh.parent) scene.remove(debugCubesMesh);
+params.debugVisType = newType; clearDebugVisualizations();
+if (params.debugVisType === 'points' && debugPoints) scene.add(debugPoints);
+if (params.debugVisType === 'cubes' && debugCubesMesh) scene.add(debugCubesMesh);
+logDebug(`Switched debug visualization to: ${newType}`); bufferUpdateNeeded = true;
+pendingDebugNodes = [];
+}
+function clearDebugVisualizations() { pendingDebugNodes = []; nextDebugInstanceIndex = 0; debugInstanceCount = 0; bufferUpdateNeeded = true; if(params.debugVisType === 'points' && debugPointsGeometry) { debugPointsGeometry.setDrawRange(0, 0); } else if (params.debugVisType === 'cubes' && debugCubesMesh) { debugCubesMesh.count = 0; } }
+function clearDebugVisualizationForBoid(boidId) {}
+function shuffleArray(array) {
+for (let i = array.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[array[i], array[j]] = [array[j], array[i]];
+}
+}
+function queueDebugNodesForVisualization(debugNodes) {
+if (!debugVizEnabled || !debugNodes || debugNodes.length === 0 || !voxelSize || voxelSize.x === 0) return;
+pendingDebugNodes.push(...debugNodes);
+}
+function updateDebugVisualizations(time) {
+const start = performance.now();
+const currentVisType = params.debugVisType;
+const activeMaterial = currentVisType === 'points' ? debugPointsMaterial : debugCubeMaterial;
+const activeGeometry = currentVisType === 'points' ? debugPointsGeometry : debugCubesMesh?.geometry;
+const activeMesh = currentVisType === 'points' ? debugPoints : debugCubesMesh;
+if (!activeMesh || !activeGeometry || !activeMaterial || (voxelSize.x === 0 && voxelSize.y === 0)) {
+if (activeMesh && (debugInstanceCount > 0 || pendingDebugNodes.length > 0)) {
+debugInstanceCount = 0; nextDebugInstanceIndex = 0; pendingDebugNodes = [];
+if (activeMesh.geometry?.setDrawRange) activeMesh.geometry.setDrawRange(0,0);
+else if (activeMesh.count !== undefined) activeMesh.count = 0;
+bufferUpdateNeeded = true;
+}
+debugVizUpdateTime = performance.now() - start;
+return;
+}
+activeMaterial.uniforms.u_time.value = time;
+activeMaterial.uniforms.u_debugVizOpacity.value = params.DEBUG_VIZ_OPACITY;
+if (!debugVizEnabled) {
+if (debugInstanceCount > 0 || pendingDebugNodes.length > 0) {
+debugInstanceCount = 0; nextDebugInstanceIndex = 0; pendingDebugNodes = [];
+if (activeMesh.geometry?.setDrawRange) activeMesh.geometry.setDrawRange(0,0);
+else if (activeMesh.count !== undefined) activeMesh.count = 0;
+bufferUpdateNeeded = true;
+}
+debugVizUpdateTime = performance.now() - start;
+return;
+}
+if (time < lastDebugUpdateTime + params.DEBUG_UPDATE_INTERVAL) {
+debugVizUpdateTime = performance.now() - start;
+return;
+}
+lastDebugUpdateTime = time;
+if (pendingDebugNodes.length > 0) {
+const now = performance.now();
+const maxInstances = params.MAX_DEBUG_INSTANCES;
+const nodesToProcess = pendingDebugNodes;
+const countForUpdate = nodesToProcess.length;
+for(let i = 0; i < countForUpdate; i++) {
+const item = nodesToProcess[i];
+if (!item) continue;
+if (nextDebugInstanceIndex >= maxInstances) nextDebugInstanceIndex = 0;
+const idx = nextDebugInstanceIndex;
+const color = (item.type === DEBUG_COLOR_TYPE_OPEN) ? DEBUG_OPEN_COLOR : DEBUG_CLOSED_COLOR;
+const worldPos = gridToWorldCenter(item.x, item.y, item.z);
+if (currentVisType === 'points') {
+const baseIdx = idx * 3;
+debugPointPositions[baseIdx] = worldPos.x;
+debugPointPositions[baseIdx + 1] = worldPos.y;
+debugPointPositions[baseIdx + 2] = worldPos.z;
+debugPointColors[baseIdx] = color.r;
+debugPointColors[baseIdx + 1] = color.g;
+debugPointColors[baseIdx + 2] = color.b;
+debugPointStartTimes[idx] = now;
+} else {
+const matrix = new THREE.Matrix4();
+const effectiveScale = params.DEBUG_VIZ_SCALE * DEBUG_CUBE_EFFECTIVE_SCALE_FACTOR * Math.min(voxelSize.x || 0.1, voxelSize.y || 0.1, voxelSize.z || 0.1) * 0.5;
+const scaleVec = new THREE.Vector3(effectiveScale, effectiveScale, effectiveScale);
+matrix.compose(worldPos, new THREE.Quaternion(), scaleVec);
+debugCubesMesh.setMatrixAt(idx, matrix);
+const colorBaseIdx = idx * 3;
+debugCubeInstanceColors[colorBaseIdx] = color.r;
+debugCubeInstanceColors[colorBaseIdx + 1] = color.g;
+debugCubeInstanceColors[colorBaseIdx + 2] = color.b;
+debugCubeInstanceStartTimes[idx] = now;
+}
+nextDebugInstanceIndex = (nextDebugInstanceIndex + 1) % maxInstances;
+if (debugInstanceCount < maxInstances) debugInstanceCount++;
+}
+pendingDebugNodes = [];
+bufferUpdateNeeded = true;
+}
+let scaleNeedsUpdate = false;
+if(currentVisType === 'points' && activeMaterial.uniforms.u_pointScale) {
+const effectiveScale = params.DEBUG_VIZ_SCALE * DEBUG_POINT_EFFECTIVE_SCALE_FACTOR;
+activeMaterial.uniforms.u_pointScale.value = effectiveScale;
+activeMaterial.uniforms.u_voxelSize.value = Math.min(voxelSize.x || 0.1, voxelSize.y || 0.1, voxelSize.z || 0.1);
+}
+else if (currentVisType === 'cubes' && debugCubesMesh) {
+const effectiveScale = params.DEBUG_VIZ_SCALE * DEBUG_CUBE_EFFECTIVE_SCALE_FACTOR * Math.min(voxelSize.x || 0.1, voxelSize.y || 0.1, voxelSize.z || 0.1) * 0.5;
+const scaleVec = new THREE.Vector3(effectiveScale, effectiveScale, effectiveScale);
+const tempMatrix = new THREE.Matrix4(); const position = new THREE.Vector3(); const quaternion = new THREE.Quaternion(); const currentScale = new THREE.Vector3();
+for (let i = 0; i < debugInstanceCount; i++) {
+activeMesh.getMatrixAt(i, tempMatrix);
+tempMatrix.decompose(position, quaternion, currentScale);
+if(!currentScale.equals(scaleVec)) {
+tempMatrix.compose(position, quaternion, scaleVec);
+activeMesh.setMatrixAt(i, tempMatrix);
+scaleNeedsUpdate = true;
+}
+}
+if(debugInstanceCount > 0 && scaleNeedsUpdate) bufferUpdateNeeded = true;
+}
+if (bufferUpdateNeeded) {
+if (currentVisType === 'points') {
+activeGeometry.attributes.position.needsUpdate = true;
+activeGeometry.attributes.color.needsUpdate = true;
+activeGeometry.attributes.startTime.needsUpdate = true;
+activeGeometry.setDrawRange(0, debugInstanceCount);
+}
+else {
+if (activeMesh.instanceMatrix) activeMesh.instanceMatrix.needsUpdate = true;
+if(activeGeometry.attributes.instanceColor) activeGeometry.attributes.instanceColor.needsUpdate = true;
+if(activeGeometry.attributes.instanceStartTime) activeGeometry.attributes.instanceStartTime.needsUpdate = true;
+if (activeMesh.count !== undefined) activeMesh.count = debugInstanceCount;
+}
+bufferUpdateNeeded = false;
+}
+debugVizUpdateTime = performance.now() - start;
+}
+function createParticleSystem() { const g=new THREE.BufferGeometry(); const p=new Float32Array(ARRIVAL_PARTICLE_COUNT*3); const v=new Float32Array(ARRIVAL_PARTICLE_COUNT*3); const s=new Float32Array(ARRIVAL_PARTICLE_COUNT); g.setAttribute('position',new THREE.BufferAttribute(p,3)); g.setAttribute('velocity',new THREE.BufferAttribute(v,3)); g.setAttribute('startTime',new THREE.BufferAttribute(s,1)); const psz=Math.max(0.05,(voxelSize.x||0.1)*0.6); const m=new THREE.PointsMaterial({color:0xffffff,size:psz,transparent:true,opacity:0.9,sizeAttenuation:true,depthTest:false}); const pts=new THREE.Points(g,m); pts.visible=false; pts.renderOrder=6; scene.add(pts); return{points:pts, geometry:g, material:m, positions:p, velocities:v, startTimes:s, active:false, startTime:0}; }
+function spawnArrivalParticles(position) { if(!voxelSize||voxelSize.x===0)return; let ps=particleSystemPool.pop(); if(!ps){ps=createParticleSystem();} ps.points.position.copy(position); ps.points.visible=true; ps.startTime=performance.now(); ps.active=true; const bs=(voxelSize.x||0.2)*2.0; for(let i=0;i<ARRIVAL_PARTICLE_COUNT;i++){const idx=i*3; ps.positions[idx]=0; ps.positions[idx+1]=0; ps.positions[idx+2]=0; const th=Math.random()*Math.PI*2; const ph=Math.acos(Math.random()*2-1); const sf=(0.4+Math.random()*0.6); ps.velocities[idx]=Math.sin(ph)*Math.cos(th)*bs*sf; ps.velocities[idx+1]=Math.cos(ph)*bs*sf; ps.velocities[idx+2]=Math.sin(ph)*Math.sin(th)*bs*sf; ps.startTimes[i]=ps.startTime+Math.random()*150;} ps.geometry.attributes.position.needsUpdate=true; ps.geometry.attributes.velocity.needsUpdate=true; ps.geometry.attributes.startTime.needsUpdate=true; activeParticleSystems.push(ps); }
+function updateParticles(deltaTime, time) { const start = performance.now(); const now=time; const grav=(voxelSize.x||0.1)*9.8*0.5; for(let i=activeParticleSystems.length-1;i>=0;i--){const ps=activeParticleSystems[i]; if(!ps.active)continue; const elapsed=now-ps.startTime; if(elapsed>ARRIVAL_PARTICLE_DURATION){ps.points.visible=false; ps.active=false; activeParticleSystems.splice(i,1); particleSystemPool.push(ps); continue;} const prog=elapsed/ARRIVAL_PARTICLE_DURATION; ps.material.opacity=Math.max(0,0.9*(1.0-prog)); ps.material.size=Math.max(0.01,(voxelSize.x||0.1)*0.6*(1.0-prog)); const pos=ps.geometry.attributes.position.array; const vel=ps.geometry.attributes.velocity.array; const st=ps.geometry.attributes.startTime.array; let needsUpd=false; for(let j=0;j<ARRIVAL_PARTICLE_COUNT;j++){const pST=st[j]; if(now>=pST){const idx=j*3; const pET=(now-pST)/1000.0; pos[idx]=vel[idx]*pET; pos[idx+1]=vel[idx+1]*pET-grav*pET*pET; pos[idx+2]=vel[idx+2]*pET; needsUpd=true;}} if(needsUpd){ps.geometry.attributes.position.needsUpdate=true;}} particleUpdateTime = performance.now() - start; }
+function clearParticles() { activeParticleSystems.forEach(ps => { if (ps.points.parent) scene.remove(ps.points); if (ps.geometry) ps.geometry.dispose(); if (ps.material) ps.material.dispose(); }); activeParticleSystems = []; particleSystemPool.forEach(ps => { if (ps.geometry) ps.geometry.dispose(); if (ps.material) ps.material.dispose(); }); particleSystemPool = []; }
+function init() {
+scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1d24); scene.fog = new THREE.Fog(scene.background, WORLD_SIZE * 1.6, WORLD_SIZE * 4.0);
+camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.set(WORLD_SIZE * 1.0, WORLD_SIZE * 1.1, WORLD_SIZE * 1.6);
+clock = new THREE.Clock(); raycaster = new THREE.Raycaster();
+canvasContainer = document.getElementById('canvas-container'); renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio); renderer.sortObjects = true; canvasContainer.appendChild(renderer.domElement);
+descriptionArea = document.getElementById('description-area'); debugContainer = document.getElementById('debug-container'); performanceContainer = document.getElementById('performance-container'); debugArea = document.getElementById('debug'); controlPanel = document.getElementById('control-panel'); performancePanel = document.getElementById('performance-panel');
+toggleDescBtn = document.getElementById('toggle-description'); toggleUiPanelsBtn = document.getElementById('toggle-ui-panels'); toggleControlsBtn = document.getElementById('toggle-controls');
+adjustRendererSize(); controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.target.set(0, WORLD_SIZE * 0.15, 0);
+controls.addEventListener('start', () => { if(!descriptionArea.classList.contains('hidden')) { descriptionArea.classList.add('hidden'); toggleDescBtn.textContent='Show Info'; } });
+scene.add(new THREE.AmbientLight(0xc0c8d0, 1.0)); const dl1 = new THREE.DirectionalLight(0xffffff, 0.7); dl1.position.set(WORLD_SIZE*0.6, WORLD_SIZE*1.4, WORLD_SIZE*0.7); scene.add(dl1); const dl2 = new THREE.DirectionalLight(0xa0c0ff, 0.5); dl2.position.set(-WORLD_SIZE*0.5, -WORLD_SIZE*0.4, -WORLD_SIZE*0.6); scene.add(dl2);
+worldMeshMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.65, metalness: 0.1, transparent: true, opacity: params.WORLD_OPACITY, depthWrite: true, side: THREE.DoubleSide, name: "WorldMaterial" });
+wireframeMaterial = new THREE.LineBasicMaterial({ color: WIREFRAME_COLOR, transparent: true, opacity: params.WIREFRAME_OPACITY, depthTest: false, name: "WireframeMaterial" });
+setupControlPanel(); setupToggleButtons(); initializeWorkers(); regenerateWorld(true);
+window.addEventListener('resize', onWindowResize); renderer.domElement.addEventListener('mousedown', onCanvasMouseDown); renderer.domElement.addEventListener('mousemove', onCanvasMouseMove); renderer.domElement.addEventListener('mouseup', onCanvasMouseUp); window.addEventListener('beforeunload', terminateWorkers);
+logDebug("Init complete. Scaling adjusted."); controls.update(); lastFpsUpdateTime = performance.now(); animate();
+}
+function setupControlPanel() {
+const cr=document.getElementById('ctrl-grid-resolution'); const cnr=document.getElementById('ctrl-num-rooms'); const vnr=document.getElementById('val-num-rooms'); const cb=document.getElementById('ctrl-boids'); const vb=document.getElementById('val-boids'); btnRegenerate=document.getElementById('ctrl-regenerate'); const cbs=document.getElementById('ctrl-boid-speed'); const vbs=document.getElementById('val-boid-speed'); const cwo=document.getElementById('ctrl-world-opacity'); const vwo=document.getElementById('val-world-opacity'); const cwfo=document.getElementById('ctrl-wireframe-opacity'); const vwfo=document.getElementById('val-wireframe-opacity'); const cdo=document.getElementById('ctrl-debug-opacity'); const vdo=document.getElementById('val-debug-opacity');
+const cds = document.getElementById('ctrl-debug-scale'); const vds = document.getElementById('val-debug-scale'); const cdve = document.getElementById('ctrl-debug-viz-enabled'); const vcs=document.getElementById('val-chunk-size'); const cmaxn = document.getElementById('ctrl-max-search-nodes'); const vmaxn = document.getElementById('val-max-search-nodes'); const cdbvt = document.getElementById('ctrl-debug-vis-type'); const cwcount = document.getElementById('ctrl-worker-count');
+const cmdi = document.getElementById('ctrl-max-debug-instances'); const vmdi = document.getElementById('val-max-debug-instances');
+const cdui = document.getElementById('ctrl-debug-update-interval'); const vdui = document.getElementById('val-debug-update-interval');
+const cic = document.getElementById('ctrl-interrupt-cooldown'); const vic = document.getElementById('val-interrupt-cooldown');
+const cfpc = document.getElementById('ctrl-failed-path-cooldown'); const vfpc = document.getElementById('val-failed-path-cooldown');
+const cwdsl = document.getElementById('ctrl-worker-debug-sample-limit'); const vwdsl = document.getElementById('val-worker-debug-sample-limit');
+const csbp = document.getElementById('ctrl-show-boid-paths');
+const cplo = document.getElementById('ctrl-path-line-opacity'); const vplo = document.getElementById('val-path-line-opacity');
+vcs.textContent=`${CHUNK_SIZE}x${CHUNK_SIZE}x${CHUNK_SIZE}`; cr.value=params.GRID_RESOLUTION; cnr.value=params.NUM_ROOMS; vnr.textContent=params.NUM_ROOMS; cb.value=params.NUM_BOIDS; vb.textContent=params.NUM_BOIDS; cbs.value=params.BOID_SPEED; vbs.textContent=params.BOID_SPEED.toFixed(1); cwo.value=params.WORLD_OPACITY; vwo.textContent=params.WORLD_OPACITY.toFixed(2); cwfo.value=params.WIREFRAME_OPACITY; vwfo.textContent=params.WIREFRAME_OPACITY.toFixed(2); cdo.value=params.DEBUG_VIZ_OPACITY; vdo.textContent=params.DEBUG_VIZ_OPACITY.toFixed(2); cds.value = params.DEBUG_VIZ_SCALE; vds.textContent = params.DEBUG_VIZ_SCALE.toFixed(1); cdve.checked = debugVizEnabled; cmaxn.value = params.MAX_SEARCH_NODES; vmaxn.textContent = (params.MAX_SEARCH_NODES/1000).toFixed(0)+'k'; cdbvt.value = params.debugVisType; cwcount.value = params.WORKER_COUNT; cmdi.value = params.MAX_DEBUG_INSTANCES; vmdi.textContent = params.MAX_DEBUG_INSTANCES; cdui.value = params.DEBUG_UPDATE_INTERVAL; vdui.textContent = params.DEBUG_UPDATE_INTERVAL; cic.value = params.INTERRUPT_COOLDOWN_MAX_MS; vic.textContent = params.INTERRUPT_COOLDOWN_MAX_MS; cfpc.value = params.FAILED_PATH_COOLDOWN_MS; vfpc.textContent = params.FAILED_PATH_COOLDOWN_MS; cwdsl.value = params.WORKER_DEBUG_SAMPLE_LIMIT; vwdsl.textContent = params.WORKER_DEBUG_SAMPLE_LIMIT; csbp.checked = params.SHOW_BOID_PATHS; cplo.value = params.PATH_LINE_OPACITY; vplo.textContent = params.PATH_LINE_OPACITY.toFixed(2);
+cr.addEventListener('change',(e)=>{params.GRID_RESOLUTION=parseInt(e.target.value); scheduleRegeneration();}); cnr.addEventListener('input',(e)=>{params.NUM_ROOMS=parseInt(e.target.value); vnr.textContent=params.NUM_ROOMS; scheduleRegeneration();}); cb.addEventListener('input',(e)=>{params.NUM_BOIDS=parseInt(e.target.value); vb.textContent=params.NUM_BOIDS; scheduleRegeneration();}); cwo.addEventListener('input',(e)=>{params.WORLD_OPACITY=parseFloat(e.target.value); vwo.textContent=params.WORLD_OPACITY.toFixed(2); if(worldMeshMaterial)worldMeshMaterial.opacity=params.WORLD_OPACITY;}); cwfo.addEventListener('input',(e)=>{params.WIREFRAME_OPACITY=parseFloat(e.target.value); vwfo.textContent=params.WIREFRAME_OPACITY.toFixed(2); if(wireframeMaterial)wireframeMaterial.opacity=params.WIREFRAME_OPACITY;}); cdo.addEventListener('input',(e)=>{params.DEBUG_VIZ_OPACITY=parseFloat(e.target.value); vdo.textContent=params.DEBUG_VIZ_OPACITY.toFixed(2);});
+cds.addEventListener('input',(e)=>{params.DEBUG_VIZ_SCALE=parseFloat(e.target.value); vds.textContent=params.DEBUG_VIZ_SCALE.toFixed(1); }); cdve.addEventListener('change', (e) => { debugVizEnabled = e.target.checked; if (!debugVizEnabled) { clearDebugVisualizations(); } });
+cdbvt.addEventListener('change', (e) => { switchDebugVisType(e.target.value); });
+cmaxn.addEventListener('input', (e) => { const val = parseInt(e.target.value); params.MAX_SEARCH_NODES = val; vmaxn.textContent = (val/1000).toFixed(0)+'k'; }); cmaxn.addEventListener('change', (e) => { scheduleRegeneration(); }); btnRegenerate.addEventListener('click',()=>{regenerateWorld();}); cbs.addEventListener('input',(e)=>{params.BOID_SPEED=parseFloat(e.target.value); vbs.textContent=params.BOID_SPEED.toFixed(1);});
+cwcount.addEventListener('change', (e) => { params.WORKER_COUNT = parseInt(e.target.value) || DEFAULT_WORKER_COUNT_FALLBACK; scheduleRegeneration(); });
+cmdi.addEventListener('input', (e) => { params.MAX_DEBUG_INSTANCES = parseInt(e.target.value); vmdi.textContent = params.MAX_DEBUG_INSTANCES; scheduleRegeneration(); });
+cwdsl.addEventListener('input', (e) => { const limit = parseInt(e.target.value); params.WORKER_DEBUG_SAMPLE_LIMIT = limit; vwdsl.textContent = limit; updateWorkersParam('WORKER_DEBUG_SAMPLE_LIMIT', limit);});
+cdui.addEventListener('input', (e) => { params.DEBUG_UPDATE_INTERVAL = parseInt(e.target.value); vdui.textContent = params.DEBUG_UPDATE_INTERVAL; });
+cic.addEventListener('input', (e) => { params.INTERRUPT_COOLDOWN_MAX_MS = parseInt(e.target.value); vic.textContent = params.INTERRUPT_COOLDOWN_MAX_MS; });
+cfpc.addEventListener('input', (e) => { params.FAILED_PATH_COOLDOWN_MS = parseInt(e.target.value); vfpc.textContent = params.FAILED_PATH_COOLDOWN_MS; });
+csbp.addEventListener('change', (e) => { params.SHOW_BOID_PATHS = e.target.checked; if (!params.SHOW_BOID_PATHS) { boidsMap.forEach(boid => boid.clearPathLine()); } else { boidsMap.forEach(boid => { if(boid.state === 'moving' && boid.currentPath) { boid.drawPathLine(boid.currentPath.length); } }); } });
+cplo.addEventListener('input', (e) => { params.PATH_LINE_OPACITY = parseFloat(e.target.value); vplo.textContent = params.PATH_LINE_OPACITY.toFixed(2); Object.values(pathLineMaterials).forEach(mat => { mat.opacity = params.PATH_LINE_OPACITY; }); });
+}
+function setupToggleButtons() {
+toggleDescBtn.addEventListener('click',()=>{const h=descriptionArea.classList.toggle('hidden');toggleDescBtn.textContent=h?'Show Info':'Hide Info';});
+toggleUiPanelsBtn.addEventListener('click',()=>{ const hidden = document.body.classList.toggle('ui-panels-hidden'); toggleUiPanelsBtn.textContent = hidden ? 'Show UI Panels' : 'Hide UI Panels'; });
+toggleControlsBtn.addEventListener('click',()=>{const h=document.body.classList.toggle('controls-hidden');toggleControlsBtn.textContent=h?'Show Controls':'Hide Controls';clearTimeout(resizeTimeout);resizeTimeout=setTimeout(adjustRendererSize,PANEL_TRANSITION_DELAY);});
+toggleUiPanelsBtn.textContent='Hide UI Panels'; document.body.classList.remove('ui-panels-hidden'); toggleDescBtn.textContent = 'Hide Info'; descriptionArea.classList.remove('hidden'); toggleControlsBtn.textContent = 'Hide Controls'; document.body.classList.remove('controls-hidden');
+document.getElementById('ctrl-debug-viz-enabled').checked = debugVizEnabled;
+document.getElementById('ctrl-show-boid-paths').checked = params.SHOW_BOID_PATHS;
+}
+function scheduleRegeneration() { if(!regenerationScheduled){regenerationScheduled=true;logDebug("Params changed. Click 'Apply & Regenerate'.");if(btnRegenerate)btnRegenerate.classList.add('pending-changes');}}
+function regenerateWorld(initialCall = false) {
+logDebug(`\n--- Regenerating World (${initialCall ? 'Initial' : 'User Triggered'}) ---`); const regenStartTime = performance.now();
+worldGenTime = 0; meshingTime = 0; pathfindingTimes = []; managerUpdateTime = 0; debugVizUpdateTime = 0; particleUpdateTime = 0; controlsUpdateTime = 0; renderTime = 0; maxQueueSinceLastUpdate = 0; pathsCompletedSinceLastUpdate = 0; maxBusyWorkersSinceLastUpdate = 0; updatePerformancePanel();
+setGlobalTarget(null); clearAllBoids(); if (boidManager) { boidManager.clearAll(); } clearChunkMeshes(); terminateWorkers(); initializeWorkers();
+if (!boidManager || workerPool.length === 0) { logDebug("FATAL: Worker initialization failed. Aborting regen."); if(btnRegenerate) btnRegenerate.classList.remove('pending-changes'); return; }
+voxelGridData = null; emptyVoxelIndices = []; generatedRooms = []; worldBounds = new THREE.Box3(); gridOrigin = new THREE.Vector3(); voxelSize = new THREE.Vector3();
+logDebug("Generating voxel data..."); const wgStart = performance.now(); generateVoxelGrid_RoomsAndCorridors(); worldGenTime = performance.now() - wgStart; logDebug(` > Voxel data generated (${worldGenTime.toFixed(1)} ms). Size: ${voxelSize.x.toFixed(3)}`);
+initDebugVisualizations(); createGlobalTargetMarker();
+if (voxelGridData && workerPool.length > 0) { workerPool.forEach(w => w.postMessage({ type: 'updateContext', grid: voxelGridData, resolution: params.GRID_RESOLUTION })); } else { logDebug("Warning: No voxel data or workers to update."); }
+logDebug("Generating chunk meshes..."); const meshStart = performance.now(); createChunkMeshes(); meshingTime = performance.now() - meshStart; logDebug(` > Chunk meshes generated (${meshingTime.toFixed(1)} ms).`);
+logDebug("Creating boids..."); createBoids();
+if (boidManager) { boidsMap.forEach(boid => boidManager.addBoid(boid)); logDebug(`Added ${boidsMap.size} boids to manager.`); boidManager.manageIdleBoidsForWander(performance.now()); boidManager.manageIdleBoidsForGlobalTarget(performance.now()); } else { logDebug("ERROR: Boid Manager missing!"); }
+const duration = performance.now() - regenStartTime; logDebug(`--- World Regen Complete: ${duration.toFixed(1)} ms ---`); updatePerformancePanel();
+regenerationScheduled = false; if(btnRegenerate) btnRegenerate.classList.remove('pending-changes');
+}
+function logDebug(message) {
+const timestamp = new Date().toLocaleTimeString(); const queueLength = boidManager ? boidManager.pathRequestQueue.length : 0; const busyWorkers = workerPool && workerStatus ? workerStatus.filter(s => s).length : 0;
+const stateCounts = {idle:0, seeking_path:0, moving:0, idle_interrupted: 0, failed_path: 0 }; if (boidsMap.size > 0) { boidsMap.forEach(boid => { if (stateCounts[boid.state] !== undefined) stateCounts[boid.state]++; }); }
+const idleTotal = stateCounts.idle + stateCounts.idle_interrupted + stateCounts.failed_path; const stateString = `Idle:${idleTotal}(F:${stateCounts.failed_path}) Seek:${stateCounts.seeking_path} Move:${stateCounts.moving}`; const targetString = globalTargetGridPos ? ` Target: ${globalTargetGridPos.x},${globalTargetGridPos.y},${globalTargetGridPos.z}` : " Target: None"; const maxNodeStr = ` | Limit: ${(params.MAX_SEARCH_NODES/1000).toFixed(0)}k`; const statusLine = `Q:${queueLength} W:${busyWorkers}/${numWorkers} | ${stateString}${targetString}${maxNodeStr}`; const debugAreaElement = document.getElementById('debug');
+if (debugAreaElement && !document.body.classList.contains('ui-panels-hidden')) {
+const currentText = debugAreaElement.innerText.split('\n'); const newText = message ? `[${timestamp}] ${message}` : null; let combined = statusLine + "\n--------------------\n"; const existingLines = currentText.slice(2);
+if (newText) { combined += newText + "\n"; } const maxLines = 20; combined += existingLines.slice(0, newText ? maxLines -1 : maxLines).join('\n'); debugAreaElement.innerText = combined; debugAreaElement.scrollTop = 0;
+}
+if (message) { debugOutput = `[${timestamp}] ${message}\n` + debugOutput; const lines = debugOutput.split('\n'); if (lines.length > 100) { debugOutput = lines.slice(0, 100).join('\n'); } console.log(message); }
+}
+function generateVoxelGrid_RoomsAndCorridors() { const res=params.GRID_RESOLUTION; voxelGridData=[]; emptyVoxelIndices=[]; generatedRooms=[]; const hws=WORLD_SIZE/2; worldBounds=new THREE.Box3(new THREE.Vector3(-hws,0,-hws),new THREE.Vector3(hws,WORLD_SIZE,hws)); gridOrigin.copy(worldBounds.min); const bs=worldBounds.getSize(new THREE.Vector3()); voxelSize.set(bs.x/res,bs.y/res,bs.z/res); for(let x=0;x<res;x++){voxelGridData[x]=[]; for(let y=0;y<res;y++){voxelGridData[x][y]=new Array(res).fill(true);}} const rooms=[]; const mind=Math.max(2,Math.floor(res*MIN_ROOM_SIZE_FACTOR)); const maxd=Math.max(mind+1,Math.floor(res*MAX_ROOM_SIZE_FACTOR)); for(let i=0;i<params.NUM_ROOMS;i++){let placed=false; for(let att=0;att<ROOM_PLACEMENT_ATTEMPTS;att++){const rw=THREE.MathUtils.randInt(mind,maxd); const rh=THREE.MathUtils.randInt(mind,Math.floor(maxd*0.8)); const rd=THREE.MathUtils.randInt(mind,maxd); const rx=THREE.MathUtils.randInt(1,res-rw-1); const ry=THREE.MathUtils.randInt(1,res-rh-1); const rz=THREE.MathUtils.randInt(1,res-rd-1); const nr=new THREE.Box3(new THREE.Vector3(rx,ry,rz),new THREE.Vector3(rx+rw,ry+rh,rz+rd)); let overlaps=false; const cb=nr.clone().expandByScalar(1); for(const er of rooms){if(cb.intersectsBox(er)){overlaps=true; break;}} if(!overlaps){rooms.push(nr); for(let x=nr.min.x;x<nr.max.x;x++)for(let y=nr.min.y;y<nr.max.y;y++)for(let z=nr.min.z;z<nr.max.z;z++)if(x>=0&&x<res&&y>=0&&y<res&&z>=0&&z<res)if(voxelGridData[x][y][z])voxelGridData[x][y][z]=false; placed=true; break;}}} generatedRooms=[...rooms]; for(let i=0;i<rooms.length-1;i++){const ca=rooms[i].getCenter(new THREE.Vector3()).floor(); const cb=rooms[i+1].getCenter(new THREE.Vector3()).floor(); carveCorridor(ca,cb);} for(let x=0;x<res;x++)for(let y=0;y<res;y++)for(let z=0;z<res;z++){if(!voxelGridData[x][y][z])emptyVoxelIndices.push({x,y,z});} }
+function carveCorridor(startVec3, endVec3) { const res=params.GRID_RESOLUTION; let cx=startVec3.x; let cy=startVec3.y; let cz=startVec3.z; function cV(x,y,z,r){for(let ix=-CORRIDOR_WIDTH;ix<=CORRIDOR_WIDTH;ix++)for(let iy=-CORRIDOR_WIDTH;iy<=CORRIDOR_WIDTH;iy++)for(let iz=-CORRIDOR_WIDTH;iz<=CORRIDOR_WIDTH;iz++){const nx=x+ix;const ny=y+iy;const nz=z+iz;if(nx>=0&&nx<r&&ny>=0&&ny<r&&nz>=0&&nz<r)if(voxelGridData[nx][ny][nz])voxelGridData[nx][ny][nz]=false;}} cV(cx,cy,cz,res); while(cx!==endVec3.x){cx+=Math.sign(endVec3.x-cx);cV(cx,cy,cz,res);} while(cy!==endVec3.y){cy+=Math.sign(endVec3.y-cy);cV(cx,cy,cz,res);} while(cz!==endVec3.z){cz+=Math.sign(endVec3.z-cz);cV(cx,cy,cz,res);} }
+function getVoxel(x, y, z) { const res=params.GRID_RESOLUTION; if(x<0||x>=res||y<0||y>=res||z<0||z>=res){return true;} return voxelGridData[x]?.[y]?.[z]??true; }
+function clearChunkMeshes() { chunkMeshes.forEach((m)=>{if(m.parent)scene.remove(m); m.geometry.dispose();}); chunkWireframes.forEach((w)=>{if(w.parent)scene.remove(w); w.geometry.dispose();}); chunkMeshes.clear(); chunkWireframes.clear(); }
+function createChunkMeshes() { if(!voxelGridData){return;} const res=params.GRID_RESOLUTION; let tf=0; const cX=Math.ceil(res/CHUNK_SIZE); const cY=Math.ceil(res/CHUNK_SIZE); const cZ=Math.ceil(res/CHUNK_SIZE); for(let cz=0;cz<cZ;cz++)for(let cy=0;cy<cY;cy++)for(let cx=0;cx<cX;cx++){const cid=`${cx},${cy},${cz}`; const cgd=generateChunkGeometryData(cx,cy,cz); if(cgd.positions.length>0){const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(cgd.positions,3)); geo.setAttribute('normal',new THREE.Float32BufferAttribute(cgd.normals,3)); geo.setAttribute('color',new THREE.Float32BufferAttribute(cgd.colors,3)); geo.setIndex(cgd.indices); geo.computeBoundingSphere(); geo.name=`ChunkGeo_${cid}`; const mesh=new THREE.Mesh(geo,worldMeshMaterial); mesh.name=`ChunkMesh_${cid}`; mesh.renderOrder=0; scene.add(mesh); chunkMeshes.set(cid,mesh); const wg=new THREE.WireframeGeometry(geo); wg.name=`ChunkWireGeo_${cid}`; const wf=new THREE.LineSegments(wg,wireframeMaterial); wf.name=`ChunkWireframe_${cid}`; wf.renderOrder=0.1; scene.add(wf); chunkWireframes.set(cid,wf); tf+=cgd.indices.length/3;}} }
+function generateChunkGeometryData(chunkX, chunkY, chunkZ) { const p=[], n=[], c=[], i=[]; let io=0; const sX=chunkX*CHUNK_SIZE; const sY=chunkY*CHUNK_SIZE; const sZ=chunkZ*CHUNK_SIZE; const eX=Math.min(sX+CHUNK_SIZE,params.GRID_RESOLUTION); const eY=Math.min(sY+CHUNK_SIZE,params.GRID_RESOLUTION); const eZ=Math.min(sZ+CHUNK_SIZE,params.GRID_RESOLUTION); const tc=new THREE.Color(); for(let y=sY;y<eY;y++)for(let z=sZ;z<eZ;z++)for(let x=sX;x<eX;x++){const is=getVoxel(x,y,z); if(!is)continue; const wp=gridToWorldCenter(x,y,z); const hn=THREE.MathUtils.inverseLerp(worldBounds.min.y,worldBounds.max.y,wp.y); tc.setHSL(0.58+hn*0.12, 0.55+hn*0.25, 0.38+hn*0.18); for(const f of FACES){const nx=x+f.dir[0]; const ny=y+f.dir[1]; const nz=z+f.dir[2]; const nis=getVoxel(nx,ny,nz); if(!nis){const norm=f.norm; const v1=[x,y,z],v2=[x,y,z],v3=[x,y,z],v4=[x,y,z]; if(f.dir[0]>0){v1[0]+=1;v2[0]+=1;v2[1]+=1;v3[0]+=1;v3[1]+=1;v3[2]+=1;v4[0]+=1;v4[2]+=1;} else if(f.dir[0]<0){v1[2]+=1;v2[1]+=1;v2[2]+=1;v3[1]+=1;} else if(f.dir[1]>0){v1[1]+=1;v1[2]+=1;v2[0]+=1;v2[1]+=1;v2[2]+=1;v3[0]+=1;v3[1]+=1;v4[1]+=1;} else if(f.dir[1]<0){v2[0]+=1;v3[0]+=1;v3[2]+=1;v4[2]+=1;} else if(f.dir[2]>0){v1[2]+=1;v2[0]+=1;v2[2]+=1;v3[0]+=1;v3[1]+=1;v3[2]+=1;v4[1]+=1;v4[2]+=1;} else {v1[0]+=1;v3[1]+=1;v4[0]+=1;v4[1]+=1;} const wv1=gridToWorldCorner(v1[0],v1[1],v1[2]); const wv2=gridToWorldCorner(v2[0],v2[1],v2[2]); const wv3=gridToWorldCorner(v3[0],v3[1],v3[2]); const wv4=gridToWorldCorner(v4[0],v4[1],v4[2]); p.push(wv1.x,wv1.y,wv1.z, wv2.x,wv2.y,wv2.z, wv3.x,wv3.y,wv3.z, wv4.x,wv4.y,wv4.z); n.push(norm[0],norm[1],norm[2], norm[0],norm[1],norm[2], norm[0],norm[1],norm[2], norm[0],norm[1],norm[2]); c.push(tc.r,tc.g,tc.b, tc.r,tc.g,tc.b, tc.r,tc.g,tc.b, tc.r,tc.g,tc.b); i.push(io,io+1,io+2, io,io+2,io+3); io+=4;}}} return {positions:p, normals:n, colors:c, indices:i}; }
+function gridToWorldCorner(ix, iy, iz) { const vx=voxelSize.x||0; const vy=voxelSize.y||0; const vz=voxelSize.z||0; return new THREE.Vector3( gridOrigin.x + ix * vx, gridOrigin.y + iy * vy, gridOrigin.z + iz * vz ); }
+function isVoxelOccupied(ix, iy, iz) { return getVoxel(ix, iy, iz); }
+function worldToGridIndices(worldPosition) { const cb = worldBounds.clone().expandByScalar(0.01); if (!cb.containsPoint(worldPosition)) { return null; } if (!voxelSize || voxelSize.x === 0 || voxelSize.y === 0 || voxelSize.z === 0) { return null; } const rp = worldPosition.clone().sub(gridOrigin); const ix = Math.floor(rp.x / voxelSize.x); const iy = Math.floor(rp.y / voxelSize.y); const iz = Math.floor(rp.z / voxelSize.z); const res = params.GRID_RESOLUTION; const x = Math.max(0, Math.min(res - 1, ix)); const y = Math.max(0, Math.min(res - 1, iy)); const z = Math.max(0, Math.min(res - 1, iz)); return { x, y, z }; }
+function gridToWorldCenter(ix, iy, iz) { const vx=voxelSize.x||0; const vy=voxelSize.y||0; const vz=voxelSize.z||0; return new THREE.Vector3( gridOrigin.x + (ix + 0.5) * vx, gridOrigin.y + (iy + 0.5) * vy, gridOrigin.z + (iz + 0.5) * vz ); }
+function convertGridPathToWorld(gridPath) { if (!gridPath) return []; return gridPath.map(gp => gridToWorldCenter(gp.x,gp.y,gp.z)); }
+function getRandomEmptyVoxelInRooms(maxAttempts = ROOM_START_POS_ATTEMPTS) { if(generatedRooms.length===0)return null; for(let a=0;a<maxAttempts;a++){const ri=Math.floor(Math.random()*generatedRooms.length); const r=generatedRooms[ri]; if(!r||!r.min||!r.max)continue; const ix=THREE.MathUtils.randInt(r.min.x,r.max.x-1); const iy=THREE.MathUtils.randInt(r.min.y,r.max.y-1); const iz=THREE.MathUtils.randInt(r.min.z,r.max.z-1); if(!isVoxelOccupied(ix,iy,iz)){return {x:ix,y:iy,z:iz};}} return null; }
+function getRandomEmptyVoxelIndex() { if(emptyVoxelIndices.length===0)return null; for(let i=0;i<RANDOM_VOXEL_ATTEMPTS;++i){const ri=Math.floor(Math.random()*emptyVoxelIndices.length); const vi=emptyVoxelIndices[ri]; if(!isVoxelOccupied(vi.x,vi.y,vi.z)){return vi;}} const fv=emptyVoxelIndices.find(v=>!isVoxelOccupied(v.x,v.y,v.z)); if (!fv) {} return fv||null; }
+function createBoids() { if(emptyVoxelIndices.length===0){return;} let cc=0; for(let i=0;i<params.NUM_BOIDS;i++){let si=getRandomEmptyVoxelInRooms(); if(!si){si=getRandomEmptyVoxelIndex();} if(si){const sp=gridToWorldCenter(si.x,si.y,si.z); const nb=new Boid(sp, boidManager); boidsMap.set(nb.id,nb); cc++;}else{ break;}} logDebug(`Created ${cc}/${params.NUM_BOIDS} requested boids.`); }
+function adjustRendererSize() { const cw=canvasContainer.offsetWidth; const ch=canvasContainer.offsetHeight; if(cw<=0||ch<=0)return; camera.aspect=cw/ch; camera.updateProjectionMatrix(); renderer.setSize(cw,ch); }
+function onWindowResize() { clearTimeout(resizeTimeout); resizeTimeout=setTimeout(adjustRendererSize, 150); }
+function onCanvasMouseDown(event) { if (event.button === 0) { isDragging = false; mouseDownPos.set(event.clientX, event.clientY); mouseDownTime = performance.now(); } }
+function onCanvasMouseMove(event) { if ((event.buttons & 1)) { if (!isDragging) { const dx = event.clientX - mouseDownPos.x; const dy = event.clientY - mouseDownPos.y; if (dx*dx + dy*dy > DRAG_THRESHOLD*DRAG_THRESHOLD) isDragging = true; } } }
+function onCanvasMouseUp(event) { if (event.button === 0) { const mouseUpTime = performance.now(); if (!isDragging && (mouseUpTime - mouseDownTime < CLICK_MAX_DURATION)) handleClick(event); isDragging = false; } }
+function handleClick(event) {
+if (!voxelGridData || !chunkMeshes.size) { setGlobalTarget(null); return; }
+const rect = renderer.domElement.getBoundingClientRect(); const mouse = new THREE.Vector2(); mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+raycaster.setFromCamera(mouse, camera); const intersects = raycaster.intersectObjects(Array.from(chunkMeshes.values()));
+if (intersects.length > 0) { const intersection = intersects[0]; const point = intersection.point; const faceNormal = intersection.face.normal.clone(); faceNormal.transformDirection( intersection.object.matrixWorld ).normalize(); const targetPoint = point.clone().addScaledVector(faceNormal, RAYCAST_EPSILON); const targetGrid = worldToGridIndices(targetPoint); if (targetGrid && !isVoxelOccupied(targetGrid.x, targetGrid.y, targetGrid.z)) { setGlobalTarget(targetGrid); } else { setGlobalTarget(null); } }
+else { setGlobalTarget(null); }
+}
+function createGlobalTargetMarker() {
+removeGlobalTargetMarker(); if (globalTargetMarker) { if (globalTargetMarker.geometry) globalTargetMarker.geometry.dispose(); if (globalTargetMarker.material) globalTargetMarker.material.dispose(); globalTargetMarker = null; }
+if (!voxelSize || voxelSize.x === 0) return; const markerSize = Math.max(0.1, voxelSize.x * 0.6); const geometry = new THREE.SphereGeometry(markerSize, 16, 12); const material = new THREE.MeshStandardMaterial({ color: GLOBAL_TARGET_COLOR, emissive: GLOBAL_TARGET_COLOR, emissiveIntensity: 0.8, roughness: 0.4, metalness: 0.1, transparent: true, opacity: 0.85, depthTest: false, name: "GlobalTargetMat" }); geometry.name = "GlobalTargetGeo";
+globalTargetMarker = new THREE.Mesh(geometry, material); globalTargetMarker.visible = false; globalTargetMarker.renderOrder = 5; globalTargetMarker.name = "GlobalTargetMarker"; scene.add(globalTargetMarker);
+}
+function removeGlobalTargetMarker() { if (globalTargetMarker && globalTargetMarker.parent) { scene.remove(globalTargetMarker); } }
+function setGlobalTarget(gridPos) {
+if (gridPos && (!voxelSize || voxelSize.x === 0)) { return; } const oldTarget = globalTargetGridPos ? {...globalTargetGridPos} : null; const targetChanged = (!oldTarget && gridPos) || (oldTarget && !gridPos) || (oldTarget && gridPos && (oldTarget.x !== gridPos.x || oldTarget.y !== gridPos.y || oldTarget.z !== gridPos.z)); if (!targetChanged) return;
+globalTargetGridPos = gridPos;
+if (gridPos) { logDebug(`Global target SET to: ${gridPos.x}, ${gridPos.y}, ${gridPos.z}`); if (!globalTargetMarker) createGlobalTargetMarker(); if (globalTargetMarker) { globalTargetMarker.position.copy(gridToWorldCenter(gridPos.x, gridPos.y, gridPos.z)); globalTargetMarker.visible = true; } if(boidManager) boidManager.interruptAllForNewTarget(); }
+else { logDebug("Global target CLEARED."); if (globalTargetMarker) globalTargetMarker.visible = false; if(boidManager && oldTarget) boidManager.triggerWanderFromTarget(oldTarget); }
+logDebug("");
+}
+function updatePerformancePanel() {
+const fpsEl = document.getElementById('perf-fps'); const workersEl = document.getElementById('perf-workers'); const queueEl = document.getElementById('perf-queue'); const idleWaitEl = document.getElementById('perf-idle-wait'); const pathsSecEl = document.getElementById('perf-paths-sec'); const wgEl = document.getElementById('perf-worldgen'); const meshEl = document.getElementById('perf-meshing'); const pathEl = document.getElementById('perf-pathavg'); const managerEl = document.getElementById('perf-manager-update'); const debugEl = document.getElementById('perf-debug-update'); const particleEl = document.getElementById('perf-particle-update');
+const controlsEl = document.getElementById('perf-controls-update'); const renderEl = document.getElementById('perf-render-time');
+if (!fpsEl || !wgEl || !meshEl || !pathEl || !workersEl || !queueEl || !managerEl || !debugEl || !particleEl || !idleWaitEl || !pathsSecEl || !controlsEl || !renderEl) return;
+fpsEl.textContent = fps.toFixed(0); const busyWorkers = workerPool && workerStatus ? workerStatus.filter(s => s).length : 0;
+workersEl.textContent = `${busyWorkers}/${maxBusyWorkersSinceLastUpdate}/${numWorkers}`;
+queueEl.textContent = `${boidManager ? boidManager.pathRequestQueue.length : 'N/A'}/${maxQueueSinceLastUpdate}`;
+pathsSecEl.textContent = pathsCompletedSinceLastUpdate.toFixed(0);
+let waitingBoids = 0; if (boidsMap.size > 0) { boidsMap.forEach(b => { if(b.state === 'idle' || b.state === 'idle_interrupted' || b.state === 'failed_path'){ if(!globalTargetGridPos) { waitingBoids++; } else { const cG = worldToGridIndices(b.mesh.position); if (!cG || cG.x !== globalTargetGridPos.x || cG.y !== globalTargetGridPos.y || cG.z !== globalTargetGridPos.z) { waitingBoids++; } } } }); } idleWaitEl.textContent = waitingBoids;
+wgEl.textContent = worldGenTime > 0 ? `${worldGenTime.toFixed(1)} ms` : '-- ms'; meshEl.textContent = meshingTime > 0 ? `${meshingTime.toFixed(1)} ms` : '-- ms';
+if (pathfindingTimes.length > 0) { const avg = pathfindingTimes.reduce((a, b) => a + b, 0) / pathfindingTimes.length; pathEl.textContent = `${avg.toFixed(1)} ms`; } else { pathEl.textContent = '-- ms'; }
+renderEl.textContent = `${renderTime.toFixed(3)} ms`;
+managerEl.textContent = `${managerUpdateTime.toFixed(3)} ms`;
+debugEl.textContent = `${debugVizUpdateTime.toFixed(3)} ms`;
+particleEl.textContent = `${particleUpdateTime.toFixed(3)} ms`;
+controlsEl.textContent = `${controlsUpdateTime.toFixed(3)} ms`;
+}
+function animate() {
+requestAnimationFrame(animate);
+const time = performance.now(); const deltaTime = clock.getDelta();
+frameCount++;
+if (time >= lastFpsUpdateTime + 1000) {
+fps = (frameCount * 1000) / (time - lastFpsUpdateTime);
+lastFpsUpdateTime = time; frameCount = 0;
+updatePerformancePanel(); logDebug("");
+maxQueueSinceLastUpdate = boidManager ? boidManager.pathRequestQueue.length : 0;
+pathsCompletedSinceLastUpdate = 0;
+maxBusyWorkersSinceLastUpdate = workerStatus.filter(s => s).length;
+}
+if(boidManager) boidManager.update(deltaTime, time);
+updateParticles(deltaTime, time); updateDebugVisualizations(time);
+if (globalTargetMarker && globalTargetMarker.visible && globalTargetMarker.material) { globalTargetMarker.material.emissiveIntensity = Math.sin(time * 0.003) * 0.3 + 0.7; }
+let start = performance.now(); controls.update(); controlsUpdateTime = performance.now() - start;
+start = performance.now(); renderer.render(scene, camera); renderTime = performance.now() - start;
+}
+init();
+</script>
+</body>
+</html>
